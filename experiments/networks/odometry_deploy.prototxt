@@ -314,13 +314,13 @@ layer {
 # Geometry
 # ----------------------------------------------------------------------
 
-layer {
-  name: "SE3"
-  type: "Python"
-  bottom: "T_2to1" 
-  top: "SE3"
-  python_param { 
-    module: "pygeometry"
-    layer: "SE3_Generator_KITTI"
-  }
-}
+#layer {
+#  name: "SE3"
+#  type: "Python"
+#  bottom: "T_2to1" 
+#  top: "SE3"
+#  python_param { 
+#    module: "pygeometry"
+#    layer: "SE3_Generator_KITTI"
+#  }
+#}

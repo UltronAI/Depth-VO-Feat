@@ -19,13 +19,13 @@ def fc(in_length, out_length):
 class SE3_Generator_KITTI(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input):
-        batch_size = input.size(0)
-        threshold = 1e-12
+        ctx.batch_size = input.size(0)
+        ctx.threshold = 1e-12
 
         # Define skew matrix of so3, . size = (batch_size, 1, 3, 3)
         uw = input[:, :3].cpu().numpy().copy()
         
-        uw_x = np.zeros((batch_size, 1, 3, 3))
+        uw_x = np.zeros((ctx.batch_size, 1, 3, 3))
         uw_x[:, 0, 0, 1] = -uw[:, 2, 0, 0]
         uw_x[:, 0, 0, 2] = uw[:, 1, 0, 0]
         uw_x[:, 0, 1, 0] = uw[:, 2, 0, 0]
@@ -35,35 +35,39 @@ class SE3_Generator_KITTI(torch.autograd.Function):
 
         # Get translation lie algebra
         ut = input[:, 3:].cpu().numpy()
-        ut = np.reshape(ut, (batch_size, 1, 3 ,1))
+        ut = np.reshape(ut, (ctx.batch_size, 1, 3 ,1))
 
         # Calculate SO3 and T, i.e. rotation matrix (batchsize,1,3,3) and translation matrix (batchsize,1,1,3)
-        R = np.zeros((batch_size, 1, 3, 3))
+        R = np.zeros((ctx.batch_size, 1, 3, 3))
         R[:, 0] = np.eye(3)
         theta = np.linalg.norm(uw, axis=1) # theta.size = (batch_size, 1)
-        for i in range(batch_size):
-            if theta[i] ** 2 < threshold:
+        for i in range(ctx.batch_size):
+            if theta[i] ** 2 < ctx.threshold:
                 R[i, 0] += uw_x[i, 0]
                 continue
             else:
                 c1 = np.sin(theta[i]) / theta
                 c2 = 2 * np.sin(theta[i]/2) ** 2 / theta[i] ** 2
                 c3 = ((theta[i] - np.sin(theta[i])) / theta[i] ** 3) ** 2
-                R[i, 0] += c1 * uw_x[i, 0] + c2 * np.dot(uw_x[i, 0], uw_x[i, 0])
+                print(R[i,0].shape)
+                print(uw_x[i,0].shape)
+                R[i, 0] = R[i, 0] + c1 * uw_x[i, 0] + c2 * np.dot(uw_x[i, 0], uw_x[i, 0])
 
-        output = np.zeros((batch_size, 1, 4, 4))
+        output = np.zeros((ctx.batch_size, 1, 4, 4))
         output[:, :, :3, :3] = R
         output[:, :, :3, 3] = np.matmul(R, ut)[:, :, :, 0]
         output[:, :, 3, 3] = 1
 
-        ctx.save_for_backward(batch_size, threshold, uw, uw_x, ut, R, theta)
+        #ctx.save_for_backward(uw, uw_x, ut, R, theta)
+        ctx.uw, ctx.uw_x, ctx.ut, ctx.R, ctx.theta = uw, uw_x, ut, R, theta
 
         return torch.from_numpy(output).cuda()
 
     @staticmethod
     @once_differentiable
     def backward(ctx, grad_output):
-        batch_size, threshold, uw, uw_x, ut, R, theta = ctx.saved_variables
+        uw, uw_x, ut, R, theta = ctx.uw, ctx.uw_x, ctx.ut, ctx.R, ctx.theta
+        batch_size, threshold = ctx.batch_size, ctx.threshold
         grad_input = np.zeros((batch_size, 6, 1, 1))
 
         # grad_output.diff .shape is (batch_size,1,4,4)
@@ -77,8 +81,8 @@ class SE3_Generator_KITTI(torch.autograd.Function):
         grad_corr = np.matmul(np.swapaxes(dLdT, 2, 3), np.swapaxes(ut, 2, 3))  # from (b,hw,4,1) to (b,4,hw,1)
 
         # dLduw
-        dLdR = grad_output[:, :, :3, :3]
-        dLdR += grad_corr
+        dLdR = grad_output[:, :, :3, :3].cpu().numpy().copy()
+        dLdR = dLdR + grad_corr
         dLduw = np.zeros((batch_size, 3))
         generators = np.zeros((3,3,3))
         generators[0] = np.array([[0,0,0],[0,0,1],[0,-1,0]])
@@ -108,7 +112,7 @@ class SE3_Generator_KITTI(torch.autograd.Function):
             dLduw[:, index] = np.sum(np.sum(dLdR*dRduw_i, axis=2), axis=2)[:, 0]
 
         grad_input[:, :3, 0, 0] = dLduw
-        return torch.from_numpy(grad_input).cuda()
+        return torch.from_numpy(grad_input).type(torch.FloatTensor).cuda()
 
 class OdometryNet(nn.Module):
     
@@ -145,7 +149,7 @@ class OdometryNet(nn.Module):
         out_fc1 = self.fc1(in_fc1)
         out_fc2 = self.fc2(out_fc1)
         temporal_pose = self.fc_pose(out_fc2)
-        temporal_pose = temporal_pose.view(temporal_pose.size(0), temporal_pose.size(1), -1, -1)
+        temporal_pose = temporal_pose.view(temporal_pose.size(0), temporal_pose.size(1), 1, -1)
         se3 = SE3_Generator_KITTI.apply(temporal_pose)
         return se3
 

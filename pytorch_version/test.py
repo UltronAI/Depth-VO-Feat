@@ -1,5 +1,7 @@
 import torch
 from model import OdometryNet
+import cv2
+import numpy as np
 
 img_width = 608;
 img_height = 160;
@@ -32,9 +34,16 @@ def main():
     input_data[:, :3, :, :] = img2
     input_data[:, 3:, :, :] = img1
 
-    input_tensor = torch.from_numpy(input_data).cuda()
+    input_tensor = torch.from_numpy(input_data).type(torch.FloatTensor).cuda()
 
-    model = OdometryNet()
-    model.eval()
+    loss = torch.nn.L1Loss()
+    tgt_temp = torch.from_numpy(np.zeros((1, 1, 4, 4))).type(torch.DoubleTensor).cuda()
+    model = OdometryNet().cuda()
+    model.train()
     output = model(input_tensor)
+    loss_ = loss(output, tgt_temp)
+    print(output.cpu().detach().numpy().shape)
+    loss_.backward()
 
+if __name__ == "__main__":
+    main()
