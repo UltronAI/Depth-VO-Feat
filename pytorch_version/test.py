@@ -1,5 +1,5 @@
 import torch
-from model import OdometryNet
+from network import OdometryNet
 import cv2
 import numpy as np
 
