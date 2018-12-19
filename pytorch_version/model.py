@@ -114,6 +114,8 @@ class SE3_Generator_KITTI(torch.autograd.Function):
         grad_input[:, :3, 0, 0] = dLduw
         return torch.from_numpy(grad_input).type(torch.FloatTensor).cuda()
 
+generate_se3 = SE3_Generator_KITTI.apply
+
 class OdometryNet(nn.Module):
     
     def __init__(self):
@@ -150,7 +152,7 @@ class OdometryNet(nn.Module):
         out_fc2 = self.fc2(out_fc1)
         temporal_pose = self.fc_pose(out_fc2)
         temporal_pose = temporal_pose.view(temporal_pose.size(0), temporal_pose.size(1), 1, -1)
-        se3 = SE3_Generator_KITTI.apply(temporal_pose)
+        se3 = generate_se3(temporal_pose)
         return se3
 
     def init_weights(self):
