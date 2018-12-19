@@ -180,7 +180,7 @@ class OdometryNet(nnf.FixTopModule):
         self.fc2 = fc(512,                       512,
             linear_fix_params=self.fc2_fix_params, activation_fix_params=self.fix_params[8])
 
-        self.fc_pose = fc(512, 6, 
+        self.fc_pose = fc(512,                   6, 
             linear_fix_params=self.fc_pose_fix_params, activation_fix_params=self.fix_params[9],
             with_relu=False)
 
