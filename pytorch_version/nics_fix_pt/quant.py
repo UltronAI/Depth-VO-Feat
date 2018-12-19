@@ -24,7 +24,20 @@ def _do_quantitize(data, scale, bit_width):
     # * Do not minus step at maximum when training on software, 
     #   this may cause some small discrepancy between software simulation and actual hardware deployment.
     # * Modify the `new_scale` calculation.
-    return torch.min(torch.max(StraightThroughRound.apply(data / step) * step, minimum), maximum)
+    #print(type(data))
+    try:
+        if data.is_cuda:
+            data = data.type(torch.cuda.FloatTensor)
+        else:
+            data = data.type(torch.FloatTensor)
+        return torch.min(torch.max(StraightThroughRound.apply(data / step) * step, minimum), maximum)
+    except:
+        print(data.type())    
+        print(step.type())
+        print(minimum.type())
+        print(maximum.type())
+        exit(0)
+    #return torch.min(torch.max(StraightThroughRound.apply(data / step) * step, minimum), maximum)
 
 # quantitze methods
 FIX_NONE = 0
