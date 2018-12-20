@@ -26,8 +26,8 @@ def getImage(img_path, transform=True):
     return img
 
 def main():
-    img1_path = "/home/gaofeng/datasets/kitti/odometry/sequences/00/image_2/000000.png"
-    img2_path = "/home/gaofeng/datasets/kitti/odometry/sequences/00/image_2/000001.png"
+    img1_path = "/home/gaof/workspace/00/image_2/000000.png"
+    img2_path = "/home/gaof/workspace/00/image_2/000001.png"
 
     img1 = getImage(img1_path, True)
     img2 = getImage(img2_path, True)
