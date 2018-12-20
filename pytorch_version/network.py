@@ -158,32 +158,79 @@ class OdometryNet(nnf.FixTopModule):
 
         self.fix_params = [_generate_default_fix_cfg(['activation'], method=1, bitwidth=bit_width) for _ in range(11)]
 
+        # input
         self.fix_input = nnf.Activation_fix(nf_fix_params=self.fix_params[0])
 
         # initialize modules
         conv_channels = [16, 32, 64, 128, 256, 256]
-        self.conv1 = conv(6,                conv_channels[0], kernel_size=7, 
-            conv_fix_params=self.conv1_fix_params, activation_fix_params=self.fix_params[1])
-        self.conv2 = conv(conv_channels[0], conv_channels[1], kernel_size=5,
-            conv_fix_params=self.conv2_fix_params, activation_fix_params=self.fix_params[2])
-        self.conv3 = conv(conv_channels[1], conv_channels[2],
-            conv_fix_params=self.conv3_fix_params, activation_fix_params=self.fix_params[3])
-        self.conv4 = conv(conv_channels[2], conv_channels[3],
-            conv_fix_params=self.conv4_fix_params, activation_fix_params=self.fix_params[4])
-        self.conv5 = conv(conv_channels[3], conv_channels[4],
-            conv_fix_params=self.conv5_fix_params, activation_fix_params=self.fix_params[5])
-        self.conv6 = conv(conv_channels[4], conv_channels[5],
-            conv_fix_params=self.conv6_fix_params, activation_fix_params=self.fix_params[6])
+        # self.conv1 = conv(6,                conv_channels[0], kernel_size=7, 
+        #     conv_fix_params=self.conv1_fix_params, activation_fix_params=self.fix_params[1])
+        # self.conv2 = conv(conv_channels[0], conv_channels[1], kernel_size=5,
+        #     conv_fix_params=self.conv2_fix_params, activation_fix_params=self.fix_params[2])
+        # self.conv3 = conv(conv_channels[1], conv_channels[2],
+        #     conv_fix_params=self.conv3_fix_params, activation_fix_params=self.fix_params[3])
+        # self.conv4 = conv(conv_channels[2], conv_channels[3],
+        #     conv_fix_params=self.conv4_fix_params, activation_fix_params=self.fix_params[4])
+        # self.conv5 = conv(conv_channels[3], conv_channels[4],
+        #     conv_fix_params=self.conv5_fix_params, activation_fix_params=self.fix_params[5])
+        # self.conv6 = conv(conv_channels[4], conv_channels[5],
+        #     conv_fix_params=self.conv6_fix_params, activation_fix_params=self.fix_params[6])
+        
+        # conv1
+        self.conv1 = nnf.Conv2d_fix(6,               c onv_channels[0], kernel_size=7, padding=3, stride=2,\
+            nf_fix_params=self.conv1_fix_params)
+        self.fix_conv1 = nnf.Activation_fix(nf_fix_params=self.fix_params[1])
+        self.relu1 = nn.ReLU(inplace=True)
+        # conv2
+        self.conv2 = nnf.Conv2d_fix(conv_channels[0], conv_channels[1], kernel_size=5, padding=2, stride=2,\
+            nf_fix_params=self.conv2_fix_params)
+        self.fix_conv2 = nnf.Activation_fix(nf_fix_params=self.fix_params[2])
+        self.relu2 = nn.ReLU(inplace=True)
+        # conv3
+        self.conv3 = nnf.Conv2d_fix(conv_channels[1], conv_channels[2], kernel_size=3, padding=1, stride=2,\
+            nf_fix_params=self.conv3_fix_params)
+        self.fix_conv3 = nnf.Activation_fix(nf_fix_params=self.fix_params[3])
+        self.relu3 = nn.ReLU(inplace=True)
+        # conv4
+        self.conv4 = nnf.Conv2d_fix(conv_channels[2], conv_channels[3], kernel_size=3, padding=1, stride=2,\
+            nf_fix_params=self.conv4_fix_params)
+        self.fix_conv4 = nnf.Activation_fix(nf_fix_params=self.fix_params[4])
+        self.relu4 = nn.ReLU(inplace=True)
+        # conv5
+        self.conv5 = nnf.Conv2d_fix(conv_channels[3], conv_channels[4], kernel_size=3, padding=1, stride=2,\
+            nf_fix_params=self.conv5_fix_params)
+        self.fix_conv5 = nnf.Activation_fix(nf_fix_params=self.fix_params[5])
+        self.relu5 = nn.ReLU(inplace=True)
+        # conv6
+        self.conv6 = nnf.Conv2d_fix(conv_channels[4], conv_channels[5], kernel_size=3, padding=1, stride=2,\
+            nf_fix_params=self.conv6_fix_params)
+        self.fix_conv6 = nnf.Activation_fix(nf_fix_params=self.fix_params[6])
+        self.relu6 = nn.ReLU(inplace=True)
 
-        self.fc1 = fc(conv_channels[5] * 3 * 10, 512,
-            linear_fix_params=self.fc1_fix_params, activation_fix_params=self.fix_params[7])
-        self.fc2 = fc(512,                       512,
-            linear_fix_params=self.fc2_fix_params, activation_fix_params=self.fix_params[8])
+        # self.fc1 = fc(conv_channels[5] * 3 * 10, 512,
+        #     linear_fix_params=self.fc1_fix_params, activation_fix_params=self.fix_params[7])
+        # self.fc2 = fc(512,                       512,
+        #     linear_fix_params=self.fc2_fix_params, activation_fix_params=self.fix_params[8])
 
-        self.fc_pose = fc(512,                   6, 
-            linear_fix_params=self.fc_pose_fix_params, activation_fix_params=self.fix_params[9],
-            with_relu=False)
+        # fc1
+        self.fc1 = nnf.Linear_fix(conv_channels[5] * 3 * 10, 512, nf_fix_params=self.fc1_fix_params)
+        self.fix_fc1 = nnf.Activation_fix(nf_fix_params=self.fix_params[7])
+        self.relu_fc1 = nn.ReLU(inplace=True)
 
+        # fc2
+        self.fc1 = nnf.Linear_fix(512,                       512, nf_fix_params=self.fc2_fix_params)
+        self.fix_fc1 = nnf.Activation_fix(nf_fix_params=self.fix_params[8])
+        self.relu_fc2 = nn.ReLU(inplace=True)
+
+        # self.fc_pose = fc(512,                   6, 
+        #     linear_fix_params=self.fc_pose_fix_params, activation_fix_params=self.fix_params[9],
+        #     with_relu=False)
+
+        # fc_pose
+        self.fc_pose = nnf.Linear_fix(512, 6, nf_fix_params=self.fc_pose_fix_params)
+        self.fix_fc_pose = nnf.Activation_fix(nf_fix_params=self.fix_params[9])
+
+        # output
         self.fix_output = nnf.Activation_fix(nf_fix_params=self.fix_params[10])
 
     def forward(self, x):
@@ -191,17 +238,17 @@ class OdometryNet(nnf.FixTopModule):
             print("input format is invalid.")
 
         input = self.fix_input(x)
-        out_conv1 = self.conv1(input)
-        out_conv2 = self.conv2(out_conv1)
-        out_conv3 = self.conv3(out_conv2)
-        out_conv4 = self.conv4(out_conv3)
-        out_conv5 = self.conv5(out_conv4)
-        out_conv6 = self.conv6(out_conv5)
+        out_conv1 = self.relu1(self.fix_conv1(self.conv1(input)))
+        out_conv2 = self.relu2(self.fix_conv2(self.conv2(out_conv1)))
+        out_conv3 = self.relu3(self.fix_conv3(self.conv3(out_conv2)))
+        out_conv4 = self.relu4(self.fix_conv4(self.conv4(out_conv3)))
+        out_conv5 = self.relu5(self.fix_conv5(self.conv5(out_conv4)))
+        out_conv6 = self.relu6(self.fix_conv6(self.conv6(out_conv5)))
 
         in_fc1 = out_conv6.view(out_conv6.size(0), -1)
-        out_fc1 = self.fc1(in_fc1)
-        out_fc2 = self.fc2(out_fc1)
-        temporal_pose = self.fc_pose(out_fc2)
+        out_fc1 = self.relu_fc1(self.fix_fc1(self.fc1(in_fc1)))
+        out_fc2 = self.relu_fc2(self.fix_fc2(self.fc2(out_fc1)))
+        temporal_pose = self.fix_fc_pose(self.fc_pose(out_fc2))
         temporal_pose = temporal_pose.view(temporal_pose.size(0), temporal_pose.size(1), 1, -1)
         se3 = self.fix_output(generate_se3(temporal_pose))
         return se3
