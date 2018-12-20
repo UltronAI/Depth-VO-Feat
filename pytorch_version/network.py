@@ -7,29 +7,6 @@ from torch.autograd.function import once_differentiable
 import nics_fix_pt as nfp
 import nics_fix_pt.nn_fix as nnf
 
-def conv(in_channels, out_channels, conv_fix_params, activation_fix_params, kernel_size=3):
-    assert conv_fix_params and activation_fix_params, "conv_fix_params and activation_fix_params must both be given."
-    return nn.Sequential(
-        nnf.Conv2d_fix(in_channels, out_channels, kernel_size=kernel_size, padding=(kernel_size-1)//2, stride=2,\
-            nf_fix_params=conv_fix_params),
-        nnf.Activation_fix(nf_fix_params=activation_fix_params),
-        nn.ReLU(inplace=True)
-    )
-
-def fc(in_length, out_length, linear_fix_params, activation_fix_params, with_relu=True):
-    assert linear_fix_params and activation_fix_params, "linear_fix_params and activation_fix_params must both be given."
-    if with_relu:
-        return nn.Sequential(
-            nnf.Linear_fix(in_length, out_length, nf_fix_params=linear_fix_params),
-            nnf.Activation_fix(nf_fix_params=activation_fix_params),
-            nn.ReLU(inplace=True)
-        )
-    else:
-        return nn.Sequential(
-            nnf.Linear_fix(in_length, out_length, nf_fix_params=linear_fix_params),
-            nnf.Activation_fix(nf_fix_params=activation_fix_params)
-        )
-
 class SE3_Generator_KITTI(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input):
@@ -163,19 +140,6 @@ class OdometryNet(nnf.FixTopModule):
 
         # initialize modules
         conv_channels = [16, 32, 64, 128, 256, 256]
-        # self.conv1 = conv(6,                conv_channels[0], kernel_size=7, 
-        #     conv_fix_params=self.conv1_fix_params, activation_fix_params=self.fix_params[1])
-        # self.conv2 = conv(conv_channels[0], conv_channels[1], kernel_size=5,
-        #     conv_fix_params=self.conv2_fix_params, activation_fix_params=self.fix_params[2])
-        # self.conv3 = conv(conv_channels[1], conv_channels[2],
-        #     conv_fix_params=self.conv3_fix_params, activation_fix_params=self.fix_params[3])
-        # self.conv4 = conv(conv_channels[2], conv_channels[3],
-        #     conv_fix_params=self.conv4_fix_params, activation_fix_params=self.fix_params[4])
-        # self.conv5 = conv(conv_channels[3], conv_channels[4],
-        #     conv_fix_params=self.conv5_fix_params, activation_fix_params=self.fix_params[5])
-        # self.conv6 = conv(conv_channels[4], conv_channels[5],
-        #     conv_fix_params=self.conv6_fix_params, activation_fix_params=self.fix_params[6])
-        
         # conv1
         self.conv1 = nnf.Conv2d_fix(6,               conv_channels[0], kernel_size=7, padding=3, stride=2,\
             nf_fix_params=self.conv1_fix_params)
@@ -207,11 +171,6 @@ class OdometryNet(nnf.FixTopModule):
         self.fix_conv6 = nnf.Activation_fix(nf_fix_params=self.fix_params[6])
         self.relu6 = nn.ReLU(inplace=True)
 
-        # self.fc1 = fc(conv_channels[5] * 3 * 10, 512,
-        #     linear_fix_params=self.fc1_fix_params, activation_fix_params=self.fix_params[7])
-        # self.fc2 = fc(512,                       512,
-        #     linear_fix_params=self.fc2_fix_params, activation_fix_params=self.fix_params[8])
-
         # fc1
         self.fc1 = nnf.Linear_fix(conv_channels[5] * 3 * 10, 512, nf_fix_params=self.fc1_fix_params)
         self.fix_fc1 = nnf.Activation_fix(nf_fix_params=self.fix_params[7])
@@ -221,10 +180,6 @@ class OdometryNet(nnf.FixTopModule):
         self.fc2 = nnf.Linear_fix(512,                       512, nf_fix_params=self.fc2_fix_params)
         self.fix_fc2 = nnf.Activation_fix(nf_fix_params=self.fix_params[8])
         self.relu_fc2 = nn.ReLU(inplace=True)
-
-        # self.fc_pose = fc(512,                   6, 
-        #     linear_fix_params=self.fc_pose_fix_params, activation_fix_params=self.fix_params[9],
-        #     with_relu=False)
 
         # fc_pose
         self.fc_pose = nnf.Linear_fix(512, 6, nf_fix_params=self.fc_pose_fix_params)
