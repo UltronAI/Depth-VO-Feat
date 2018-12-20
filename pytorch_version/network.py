@@ -177,7 +177,7 @@ class OdometryNet(nnf.FixTopModule):
         #     conv_fix_params=self.conv6_fix_params, activation_fix_params=self.fix_params[6])
         
         # conv1
-        self.conv1 = nnf.Conv2d_fix(6,               c onv_channels[0], kernel_size=7, padding=3, stride=2,\
+        self.conv1 = nnf.Conv2d_fix(6,               conv_channels[0], kernel_size=7, padding=3, stride=2,\
             nf_fix_params=self.conv1_fix_params)
         self.fix_conv1 = nnf.Activation_fix(nf_fix_params=self.fix_params[1])
         self.relu1 = nn.ReLU(inplace=True)
@@ -218,8 +218,8 @@ class OdometryNet(nnf.FixTopModule):
         self.relu_fc1 = nn.ReLU(inplace=True)
 
         # fc2
-        self.fc1 = nnf.Linear_fix(512,                       512, nf_fix_params=self.fc2_fix_params)
-        self.fix_fc1 = nnf.Activation_fix(nf_fix_params=self.fix_params[8])
+        self.fc2 = nnf.Linear_fix(512,                       512, nf_fix_params=self.fc2_fix_params)
+        self.fix_fc2 = nnf.Activation_fix(nf_fix_params=self.fix_params[8])
         self.relu_fc2 = nn.ReLU(inplace=True)
 
         # self.fc_pose = fc(512,                   6, 
