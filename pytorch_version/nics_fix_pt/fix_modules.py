@@ -101,7 +101,7 @@ class FixTopModule(Module):
                                                                                                         d_mt=d_mt, g_mt=g_mt))
 
     def set_fix_method(self, method, grad=False):
-        for module in self._modules.itervalues():
+        for module in self._modules.values():
             if isinstance(module, FixTopModule):
                 module.set_fix_method(method, grad=grad)
             elif isinstance(module.__class__, FixMeta) or isinstance(module, Activation_fix):
