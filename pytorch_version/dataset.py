@@ -23,12 +23,16 @@ class pose_framework_KITTI(data.Dataset):
         self.gt_se3 = []
         for pose_list in self.poses:
             prev_SE3 = np.eye(4)
+            se3_list = []
             for idx in range(pose_list.shape[0]):
-                SE3 = np.eys(4)
+                SE3 = np.eye(4)
                 SE3[:3] = pose_list[idx]
-                self.gt_se3.append(np.linalg.inv(prev_SE3).dot(SE3))
+                se3_list.append(np.linalg.inv(prev_SE3).dot(SE3))
                 prev_SE3 = SE3
+            self.gt_se3.append(se3_list)
         for img_list, pose_list in zip(self.img_files, self.gt_se3):
+            #print(pose_list.shape)
+            #exit(0)
             for i in range(len(img_list)-1):
                 imgs = [img_list[i], img_list[i+1]]
                 pose = pose_list[i]

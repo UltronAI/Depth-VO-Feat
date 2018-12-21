@@ -12,7 +12,6 @@ class SE3_Generator_KITTI(torch.autograd.Function):
     def forward(ctx, input):
         ctx.batch_size = input.size(0)
         ctx.threshold = 1e-12
-
         # Define skew matrix of so3, . size = (batch_size, 1, 3, 3)
         uw = input[:, :3].cpu().numpy().copy()
         
@@ -25,23 +24,24 @@ class SE3_Generator_KITTI(torch.autograd.Function):
         uw_x[:, 0, 2, 1] = uw[:, 0, 0, 0]
 
         # Get translation lie algebra
-        ut = input[:, 3:].cpu().numpy()
+        ut = input[:, 3:].cpu().numpy().copy()
         ut = np.reshape(ut, (ctx.batch_size, 1, 3 ,1))
 
         # Calculate SO3 and T, i.e. rotation matrix (batchsize,1,3,3) and translation matrix (batchsize,1,1,3)
         R = np.zeros((ctx.batch_size, 1, 3, 3))
         R[:, 0] = np.eye(3)
-        theta = np.linalg.norm(uw, axis=1) # theta.size = (batch_size, 1)
+        theta = np.linalg.norm(uw, axis=1).reshape(ctx.batch_size, -1) # theta.size = (batch_size, 1)
         for i in range(ctx.batch_size):
             if theta[i] ** 2 < ctx.threshold:
                 R[i, 0] += uw_x[i, 0]
                 continue
             else:
-                c1 = np.sin(theta[i]) / theta
+                c1 = np.sin(theta[i]) / theta[i]
                 c2 = 2 * np.sin(theta[i]/2) ** 2 / theta[i] ** 2
                 c3 = ((theta[i] - np.sin(theta[i])) / theta[i] ** 3) ** 2
                 #print(R[i,0].shape)
                 #print(uw_x[i,0].shape)
+                #exit(0)
                 R[i, 0] = R[i, 0] + c1 * uw_x[i, 0] + c2 * np.dot(uw_x[i, 0], uw_x[i, 0])
 
         output = np.zeros((ctx.batch_size, 1, 4, 4))
@@ -213,5 +213,4 @@ class OdometryNet(nnf.FixTopModule):
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
                 xavier_uniform_(m.weight.data)
                 if m.bias is not None:
-                    zeros_(m.bias)
-
+                    zeros_(m.bias) 
