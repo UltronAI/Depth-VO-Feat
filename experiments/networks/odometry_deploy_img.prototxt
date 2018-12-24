@@ -3,6 +3,7 @@
 # ----------------------------------------------------------------------
 # Data input
 # ----------------------------------------------------------------------
+# name: "Pytorch"
 # input: "imgs"
 # input_dim: 1
 # input_dim: 6 #first 3-channel: I2; last 3-channel: I1
@@ -20,7 +21,7 @@ layer{
     mean_value: 123
   }
   image_data_param {
-    root_folder: "/home/gaof/workspace/00/image_2/"
+    root_folder: "/home/share/kitti_odometry/dataset/sequences/00/image_2/"
     source: "/home/gaof/workspace/Depth-VO-Feat/data/1.txt"
     new_width: 608
     new_height: 160
@@ -39,7 +40,7 @@ layer{
     mean_value: 123
   }
   image_data_param {
-    root_folder: "/home/gaof/workspace/00/image_2/"
+    root_folder: "/home/share/kitti_odometry/dataset/sequences/00/image_2/"
     source: "/home/gaof/workspace/Depth-VO-Feat/data/2.txt"
     new_width: 608
     new_height: 160
@@ -280,8 +281,14 @@ layer {
   type: "InnerProduct"
   bottom: "conv_5_pose"
   top: "fc_0_pose"
-  param { lr_mult: 1 decay_mult: 1 }
-  param { lr_mult: 2 decay_mult: 0 }
+  param { 
+    lr_mult: 1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 512
     weight_filler {
@@ -306,8 +313,14 @@ layer {
   type: "InnerProduct"
   bottom: "fc_0_pose"
   top: "fc_1_pose"
-  param { lr_mult: 1 decay_mult: 1 }
-  param { lr_mult: 2 decay_mult: 0 }
+  param { 
+    lr_mult: 1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 512
     weight_filler {
@@ -333,8 +346,14 @@ layer {
   type: "InnerProduct"
   bottom: "fc_1_pose"
   top: "temporal_pose_0"
-  param { lr_mult: 0.1 decay_mult: 1 }
-  param { lr_mult: 0.2 decay_mult: 0 }
+  param { 
+    lr_mult: 0.1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 0.2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 6
     bias_filler {

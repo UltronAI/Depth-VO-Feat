@@ -24,8 +24,8 @@ then
 	echo "# quantize: "
 	# ${exedir}deephi_fix fix 						\
 
-	decent quantize -model ./experiments/networks/odometry_deploy_img.prototxt		\
-			-weights ./experiments/networks/Full-NYUv2.caffemodel		\
+	decent quantize -model ./stereo/stereo.prototxt		\
+			-weights ./stereo/stereo.caffemodel		\
 		       	-calib_iter 100						\
 		       	-gpu 2
 elif [ "$1" == "defi" ]

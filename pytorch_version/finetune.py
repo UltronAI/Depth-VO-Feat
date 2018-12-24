@@ -28,6 +28,8 @@ parser.add_argument('--lr', type=float, default=1e-3, metavar='LR',
                     help='learning rate (default: 0.01)')
 parser.add_argument('--momentum', type=float, default=0.8, metavar='M',
                     help='SGD momentum (default: 0.8)')
+parser.add_argument('--weight-decay', type=float, default=1e-8, metavar='WD',
+                    help='SGD weight decay (default: 1e-8)')
 parser.add_argument('--seed', type=int, default=2018, metavar='S',
                     help='random seed (default: 2018)')
 parser.add_argument('-b', '--batch-size', default=64, type=int)
@@ -142,7 +144,7 @@ def main():
     elif args.cuda:
         model = torch.nn.DataParallel(model)
 
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     validate(model, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
         train(model, train_loader, epoch, optimizer)

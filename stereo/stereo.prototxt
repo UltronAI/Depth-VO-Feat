@@ -1,0 +1,248 @@
+layer {
+  name: "img1"
+  type: "ImageData"
+  top: "img1"
+  top: "nil_1"
+  transform_param {
+    mean_value: 104
+    mean_value: 117
+    mean_value: 123
+  }
+  image_data_param {
+    root_folder: "/home/share/kitti_odometry/dataset/sequences/00/image_2/"
+    source: "/home/gaof/workspace/Depth-VO-Feat/data/train_1.txt"
+    new_width: 608
+    new_height: 160
+    batch_size: 1
+  }
+}
+
+layer {
+  name: "img2"
+  type: "ImageData"
+  top: "img2"
+  top: "nil_2"
+  transform_param {
+    mean_value: 104
+    mean_value: 117
+    mean_value: 123
+  }
+  image_data_param {
+    root_folder: "/home/share/kitti_odometry/dataset/sequences/00/image_2/"
+    source: "/home/gaof/workspace/Depth-VO-Feat/data/train_2.txt"
+    new_width: 608
+    new_height: 160
+    batch_size: 1
+  }
+}
+
+layer {
+  name: "data"
+  type: "Concat"
+  bottom: "img2"
+  bottom: "img1"
+  top: "data"
+  concat_param {axis:1}
+}
+
+layer {
+  name: "ConvNd_1"
+  type: "Convolution"
+  bottom: "data"
+  top: "ConvNd_1"
+  convolution_param {
+    num_output: 16
+    bias_term: true
+    pad: 3
+    kernel_size: 7
+    group: 1
+    stride: 2
+    dilation: 1
+  }
+}
+layer {
+  name: "Threshold_1"
+  type: "ReLU"
+  bottom: "ConvNd_1"
+  top: "ConvNd_1"
+}
+layer {
+  name: "ConvNd_2"
+  type: "Convolution"
+  bottom: "ConvNd_1"
+  top: "ConvNd_2"
+  convolution_param {
+    num_output: 32
+    bias_term: true
+    pad: 2
+    kernel_size: 5
+    group: 1
+    stride: 2
+    dilation: 1
+  }
+}
+layer {
+  name: "Threshold_2"
+  type: "ReLU"
+  bottom: "ConvNd_2"
+  top: "ConvNd_2"
+}
+layer {
+  name: "ConvNd_3"
+  type: "Convolution"
+  bottom: "ConvNd_2"
+  top: "ConvNd_3"
+  convolution_param {
+    num_output: 64
+    bias_term: true
+    pad: 1
+    kernel_size: 3
+    group: 1
+    stride: 2
+    dilation: 1
+  }
+}
+layer {
+  name: "Threshold_3"
+  type: "ReLU"
+  bottom: "ConvNd_3"
+  top: "ConvNd_3"
+}
+layer {
+  name: "ConvNd_4"
+  type: "Convolution"
+  bottom: "ConvNd_3"
+  top: "ConvNd_4"
+  convolution_param {
+    num_output: 128
+    bias_term: true
+    pad: 1
+    kernel_size: 3
+    group: 1
+    stride: 2
+    dilation: 1
+  }
+}
+layer {
+  name: "Threshold_4"
+  type: "ReLU"
+  bottom: "ConvNd_4"
+  top: "ConvNd_4"
+}
+layer {
+  name: "ConvNd_5"
+  type: "Convolution"
+  bottom: "ConvNd_4"
+  top: "ConvNd_5"
+  convolution_param {
+    num_output: 256
+    bias_term: true
+    pad: 1
+    kernel_size: 3
+    group: 1
+    stride: 2
+    dilation: 1
+  }
+}
+layer {
+  name: "Threshold_5"
+  type: "ReLU"
+  bottom: "ConvNd_5"
+  top: "ConvNd_5"
+}
+layer {
+  name: "ConvNd_6"
+  type: "Convolution"
+  bottom: "ConvNd_5"
+  top: "ConvNd_6"
+  convolution_param {
+    num_output: 256
+    bias_term: true
+    pad: 1
+    kernel_size: 3
+    group: 1
+    stride: 2
+    dilation: 1
+  }
+}
+layer {
+  name: "Threshold_6"
+  type: "ReLU"
+  bottom: "ConvNd_6"
+  top: "ConvNd_6"
+}
+layer {
+  name: "View_1"
+  type: "Reshape"
+  bottom: "ConvNd_6"
+  top: "View_1"
+  reshape_param {
+    shape {
+      dim: 1
+      dim: -1
+    }
+  }
+}
+layer {
+  name: "Addmm_1"
+  type: "InnerProduct"
+  bottom: "View_1"
+  top: "Addmm_1"
+  inner_product_param {
+    num_output: 512
+    bias_term: true
+  }
+}
+layer {
+  name: "Threshold_7"
+  type: "ReLU"
+  bottom: "Addmm_1"
+  top: "Addmm_1"
+}
+layer {
+  name: "Addmm_2"
+  type: "InnerProduct"
+  bottom: "Addmm_1"
+  top: "Addmm_2"
+  inner_product_param {
+    num_output: 512
+    bias_term: true
+  }
+}
+layer {
+  name: "Threshold_8"
+  type: "ReLU"
+  bottom: "Addmm_2"
+  top: "Addmm_2"
+}
+layer {
+  name: "Addmm_3"
+  type: "InnerProduct"
+  bottom: "Addmm_2"
+  top: "Addmm_3"
+  inner_product_param {
+    num_output: 6
+    bias_term: true
+  }
+}
+layer {
+  name: "View_2"
+  type: "Reshape"
+  bottom: "Addmm_3"
+  top: "View_2"
+  reshape_param {
+    shape {
+      dim: 1
+      dim: 6
+      dim: 1
+      dim: -1
+    }
+  }
+}
+
+layer {
+  name: "silence_train"
+  type: "Silence"
+  bottom: "nil_1"
+  bottom: "nil_2"
+}

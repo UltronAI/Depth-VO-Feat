@@ -3,9 +3,10 @@
 # ----------------------------------------------------------------------
 # Data input
 # ----------------------------------------------------------------------
-input: "imgs"
+name: "Pytorch"
+input: "data"
 input_dim: 1
-input_dim: 6 #first 3-channel: I2; last 3-channel: I1
+input_dim: 6
 input_dim: 160
 input_dim: 608
 
@@ -16,7 +17,7 @@ input_dim: 608
 layer {
   name: "conv_0_pose"
   type: "Convolution"
-  bottom: "imgs"
+  bottom: "data"
   top: "conv_0_pose"
   param { 
     lr_mult: 1
@@ -230,8 +231,14 @@ layer {
   type: "InnerProduct"
   bottom: "conv_5_pose"
   top: "fc_0_pose"
-  param { lr_mult: 1 decay_mult: 1 }
-  param { lr_mult: 2 decay_mult: 0 }
+  param { 
+    lr_mult: 1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 512
     weight_filler {
@@ -256,8 +263,14 @@ layer {
   type: "InnerProduct"
   bottom: "fc_0_pose"
   top: "fc_1_pose"
-  param { lr_mult: 1 decay_mult: 1 }
-  param { lr_mult: 2 decay_mult: 0 }
+  param { 
+    lr_mult: 1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 512
     weight_filler {
@@ -283,8 +296,14 @@ layer {
   type: "InnerProduct"
   bottom: "fc_1_pose"
   top: "temporal_pose_0"
-  param { lr_mult: 0.1 decay_mult: 1 }
-  param { lr_mult: 0.2 decay_mult: 0 }
+  param { 
+    lr_mult: 0.1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 0.2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 6
     bias_filler {

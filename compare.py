@@ -93,7 +93,8 @@ def getImage(img_path, transform=True):
 
 def main():
     model_def_1 = "/home/gaof/workspace/Depth-VO-Feat/experiments/networks/odometry_deploy.prototxt"
-    model_def_2 = "/home/gaof/workspace/Depth-VO-Feat/test_fix_point/odometry_deploy_img.prototxt"
+#    model_def_2 = "/home/gaof/workspace/Depth-VO-Feat/test_fix_point/odometry_deploy_img.prototxt"
+    model_def_2 = "/home/gaof/workspace/Depth-VO-Feat/experiments/networks/odometry_deploy_img.prototxt"
 
     caffe_model = "/home/gaof/workspace/Depth-VO-Feat/test_fix_point/Full-NYUv2.caffemodel"
 
@@ -101,16 +102,16 @@ def main():
     odom_net_2 = caffe.Net(model_def_2, caffe_model, caffe.TEST)
     result_path = "/home/gaof/workspace/Depth-VO-Feat/odometry_results"
 
-    img1_path = "/home/gaof/workspace/00/image_2/000000.png"
-    img2_path = "/home/gaof/workspace/00/image_2/000001.png"
+#    img1_path = "/home/gaof/workspace/00/image_2/000000.png"
+#    img2_path = "/home/gaof/workspace/00/image_2/000001.png"
 
-    img1 = getImage(img1_path, True)
-    img2 = getImage(img2_path, True)
+#    img1 = getImage(img1_path, True)
+#    img2 = getImage(img2_path, True)
 
     odom_net_2.forward()
-    print(odom_net_2.blobs['conv_5_pose'].data.copy().shape)
-    print(odom_net_2.blobs['fc_0_pose'].data.copy().shape) 
-    print(odom_net_2.blobs['temporal_pose_0'].data.copy().shape)
+#    print(odom_net_2.blobs['conv_5_pose'].data.copy().shape)
+#    print(odom_net_2.blobs['fc_0_pose'].data.copy().shape) 
+    print(odom_net_2.blobs['T_2to1'].data.copy())
     #pred_poses_2 = odom_net_2.blobs['SE3'].data.copy()
 
     #pred_poses_1 = np.array(get_list_labels())

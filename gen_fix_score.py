@@ -17,42 +17,11 @@ caffe_root = '/home/gaof/caffe-dev/'
 sys.path.insert(0, caffe_root + 'python')
 import caffe
 
-def gen_ResNetVlad():
-    use_cuda = True
-    
-    model = ResNetVlad()
-    if use_cuda:
-        model = model.cuda()
-        if torch.cuda.device_count() > 1:
-            print('Multi_gpu')
-            model = torch.nn.DataParallel(model)
-    
-    # state_dict = torch.load('vd16_data_wpca.pkl') # add map_location='cpu' if no gpu
-
-    #state_dict = torch.load('./models/student_net_params_res18_init.pkl')
-    # state_dict = torch.load('./outimport/student_net_params_epoch_479.pkl')
-    state_dict = torch.load('../netvlad_distil/output_log/student_net_params_epoch_29.pkl')
-    print(state_dict)
-
-    model.load_state_dict(state_dict)
-
-    model_single = model.module
-    model_single = model_single.cpu()
-    # print(model_single.state_dict() )
-    torch.save(model_single.state_dict(), './output_log/student_net_paramssingle_29.pkl')
-    # exit(0)
-
-    for name,p in model_single.named_parameters():
-        if 'WPCA.bias' in name:
-            print(name,p)
-
-    return model_single
-
-root = '/home/gaof/workspace/Depth-VO-Feat/test_fix_point/'
+root = '/home/gaof/workspace/Depth-VO-Feat/stereo/'
 
 def get_caffe_model():
-    model_def = root + 'odometry_test.prototxt'
-    caffe_model = root + 'Temporal.caffemodel'
+    model_def = root + 'stereo.prototxt'
+    caffe_model = root + 'stereo.caffemodel'
     odom_net = caffe.Net(model_def, caffe_model, caffe.TEST)
     return odom_net
 
@@ -80,7 +49,7 @@ def get_fix_lable(filename1, filename2):
 def get_list_labls():
     # fileList='../image_2_flist.txt'
     # teaching = gen_ResNetVlad()
-    file_root = '/home/gaof/workspace/00/image_2/'
+    file_root = '/home/share/kitti_odometry/dataset/sequences/00/image_2/'
     descs = []
     file_name_1 = file_root + '{:06}.png'.format(0)
     file_name_2 = file_root + '{:06}.png'.format(1)
@@ -153,29 +122,6 @@ def get_matrix(feats):
     output = open(root + 'feats_00.pkl', 'wb')
     pickle.dump(feats, output)
     output.close()
-    #score = np.dot(np.array(feats),np.array(feats).T)
-    #sns.heatmap(score,annot=False,cmap='RdYlGn') #data.corr()-->correlation matrix
-    #fig=plt.gcf()
-    #fig.set_size_inches(12,12)
-    #plt.savefig('euclidean_distance_'+LAYER_NAME)
-    #plt.show()
-    #output = open('./val_reloc/feats_score_00.pkl', 'wb')
-    #pickle.dump(score, output)
-    #output.close()
-    #%% Suppressing a certain radius around the diagonal to prevent self-matches
-    # (not real loop closures).
-    # suppression_diameter = 501
-    # diag_suppression = scisig.convolve2d(
-    #         np.eye(use_feats.shape[0]), np.ones((1, suppression_diameter)), 'same')
-
-    # #%% NetVLAD matching, reject along diagonal (query ~ match):
-    # sq_dists = scid.squareform(scid.pdist(use_feats, 'sqeuclidean'))
-    # sq_dists[diag_suppression > 0] = np.inf
-    # plt.imshow(sq_dists)
-    # plt.title('Confusion matrix NetVLAD')
-    # plt.colorbar()
-    # plt.show()
-
 
 if __name__ == "__main__":
     # get_labels('/home/yujc/mnt/google_landmark/index/google_landmarks/',32,'/home/yujc/mnt/netvlad_data/vlad_result/teaching_result/','/home/yujc/mnt/netvlad_data/vlad_result/teaching.list')
@@ -183,6 +129,3 @@ if __name__ == "__main__":
     # descs = get_labels(16)
     print(descs[0])
     get_matrix(descs)
-    # train_list('image_2',3)
-    # train_list('./image_2',8,'./teaching_result','teaching.list')
-    # train_list('/home/yujc/mnt/google_landmark/index/google_landmarks/',32,'/home/yujc/mnt/netvlad_data/vlad_result/teaching_result/','/home/yujc/mnt/netvlad_data/vlad_result/teaching.list')
