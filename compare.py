@@ -4,12 +4,12 @@ import sys
 import numpy as np
 from matplotlib import pyplot as plt
 
-caffe_root = '/home/gaof/caffe-dev/'
+caffe_root = '/home/gaof/caffe-comp/'
 sys.path.insert(0, caffe_root + 'python')
 import caffe
 
 import h5py
-import os, os.path
+import os
 import cv2
 import argparse
 
@@ -18,9 +18,9 @@ img_height = 160;
 
 root = '/home/gaof/workspace/Depth-VO-Feat/test_fix_point/'
 
-def get_caffe_model():
-    model_def = root + 'odometry_test.prototxt'
-    caffe_model = root + 'Full-NYUv2.caffemodel'
+def get_caffe_model(model_def, caffe_model):
+    model_def = os.path.join(root, model_def)
+    caffe_model = os.path.join(root, caffe_model)
     odom_net = caffe.Net(model_def, caffe_model, caffe.TEST)
     return odom_net
 
@@ -91,29 +91,57 @@ def getImage(img_path, transform=True):
         img[2] -= 123
     return img
 
-def main():
-    model_def_1 = "/home/gaof/workspace/Depth-VO-Feat/experiments/networks/odometry_deploy.prototxt"
-#    model_def_2 = "/home/gaof/workspace/Depth-VO-Feat/test_fix_point/odometry_deploy_img.prototxt"
-    model_def_2 = "/home/gaof/workspace/Depth-VO-Feat/experiments/networks/odometry_deploy_img.prototxt"
+def SE3_cam2world(pred_poses):
+    pred_SE3_world = []
+    cur_t = np.eye(4)
+    pred_SE3_world.append(cur_t)
+    for pose in pred_poses:
+        cur_t = np.dot(cur_t, pose)
+        pred_SE3_world.append(cur_t)
+    return pred_SE3_world
 
+def save_results(pred_poses, save_path):
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    with open(os.path.join(save_path, 'pred_1.txt'), 'w') as f:
+        for se3 in pred_poses:
+            tx = str(se3[0,3])
+            ty = str(se3[1,3])
+            tz = str(se3[2,3])
+            R00 = str(se3[0,0])
+            R01 = str(se3[0,1])
+            R02 = str(se3[0,2])
+            R10 = str(se3[1,0])
+            R11 = str(se3[1,1])
+            R12 = str(se3[1,2])
+            R20 = str(se3[2,0])
+            R21 = str(se3[2,1])
+            R22 = str(se3[2,2])
+            line_to_write = " ".join([R00, R01, R02, tx, R10, R11, R12, ty, R20, R21, R22, tz])
+            f.writelines(line_to_write + '\n')
+
+def main():
     caffe_model = "/home/gaof/workspace/Depth-VO-Feat/test_fix_point/Full-NYUv2.caffemodel"
 
-    odom_net_1 = caffe.Net(model_def_1, caffe_model, caffe.TEST)
-    odom_net_2 = caffe.Net(model_def_2, caffe_model, caffe.TEST)
+    odom_net_1 = get_caffe_model('odometry_deploy_data.prototxt', 'Full-NYUv2.caffemodel')
+    # odom_net_2 = get_caffe_model('odometry_deploy_img.prototxt', 'Full-NYUv2.caffemodel')
     result_path = "/home/gaof/workspace/Depth-VO-Feat/odometry_results"
+    data_root = "/home/share/kitti_odometry/dataset/sequences/00/image_2"
 
-#    img1_path = "/home/gaof/workspace/00/image_2/000000.png"
-#    img2_path = "/home/gaof/workspace/00/image_2/000001.png"
-
-#    img1 = getImage(img1_path, True)
-#    img2 = getImage(img2_path, True)
-
-    odom_net_2.forward()
-#    print(odom_net_2.blobs['conv_5_pose'].data.copy().shape)
-#    print(odom_net_2.blobs['fc_0_pose'].data.copy().shape) 
-    print(odom_net_2.blobs['T_2to1'].data.copy())
+    pred_poses = []
+    with open('kitti_00.txt') as imgfile:
+        lines = imgfile.readlines()
+        for i in range(len(lines)-1):
+            img1 = getImage(os.path.join(data_root, lines[i].strip()))
+            img2 = getImage(os.path.join(data_root, lines[i+1].strip()))
+            odom_net_1.blobs['data'].data[0, :3] = img2
+            odom_net_1.blobs['data'].data[0, 3:] = img1
+            odom_net_1.forward()
+            pred_poses.append(odom_net_1.blobs['SE3'].data[0,0].copy())
+#    se3 = SE3_cam2world(pred_poses) 
+    save_results(pred_poses, result_path)
+      
     #pred_poses_2 = odom_net_2.blobs['SE3'].data.copy()
-
     #pred_poses_1 = np.array(get_list_labels())
     #print(pred_poses_1.shape)
     #print(pred_poses_2.shape)

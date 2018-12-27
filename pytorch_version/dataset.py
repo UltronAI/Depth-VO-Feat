@@ -9,9 +9,10 @@ import random
 import torch
 
 class pose_framework_KITTI(data.Dataset):
-    def __init__(self, root, sequence_set, step=1, transform=None, seed=2018, img_height=160, img_width=608):
+    def __init__(self, root, sequence_set, step=1, transform=None, seed=2018, img_height=160, img_width=608, shuffle=True):
         np.random.seed(seed)
         random.seed(seed)
+        self.shuffle = shuffle
         self.root, self.transform = root, transform
         self.img_files, self.poses = read_scene_data(self.root, sequence_set, step)
         self.sequence_num = len(self.poses)
@@ -39,8 +40,8 @@ class pose_framework_KITTI(data.Dataset):
 
                 sample = {'imgs': imgs, 'pose': pose}
                 sequence_set.append(sample)
-
-        random.shuffle(sequence_set)
+        if self.shuffle:
+            random.shuffle(sequence_set)
         self.samples = sequence_set
 
     def __getitem__(self, index):

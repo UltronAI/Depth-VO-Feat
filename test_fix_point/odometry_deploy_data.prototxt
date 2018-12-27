@@ -3,16 +3,128 @@
 # ----------------------------------------------------------------------
 # Data input
 # ----------------------------------------------------------------------
+name: "Input"
 input: "data"
 input_dim: 1
-input_dim: 64 #first 3-channel: I2; last 3-channel: I1
-input_dim: 20
-input_dim: 76
+input_dim: 6
+input_dim: 160
+input_dim: 608
+
+# ----------------------------------------------------------------------
+# Pose Network
+# ----------------------------------------------------------------------
+
+layer {
+  name: "conv_0_pose"
+  type: "Convolution"
+  bottom: "data"
+  top: "conv_0_pose"
+  param { 
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param { 
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param { 
+    num_output: 16
+    kernel_size: 7
+    stride: 2
+    pad: 3
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "relu_0_pose"
+  type: "ReLU"
+  bottom: "conv_0_pose"
+  top: "conv_0_pose"
+}
+
+
+layer {
+  name: "conv_1_pose"
+  type: "Convolution"
+  bottom: "conv_0_pose"
+  top: "conv_1_pose"
+  param { 
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param { 
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param { 
+    num_output: 32
+    kernel_size: 5
+    stride: 2
+    pad: 2
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "relu_1_pose"
+  type: "ReLU"
+  bottom: "conv_1_pose"
+  top: "conv_1_pose"
+}
+
+
+layer {
+  name: "conv_2_pose"
+  type: "Convolution"
+  bottom: "conv_1_pose"
+  top: "conv_2_pose"
+  param { 
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param { 
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param { 
+    num_output: 64
+    kernel_size: 3
+    stride: 2
+    pad: 1
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "relu_2_pose"
+  type: "ReLU"
+  bottom: "conv_2_pose"
+  top: "conv_2_pose"
+}
 
 layer {
   name: "conv_3_pose"
   type: "Convolution"
-  bottom: "data"
+  bottom: "conv_2_pose"
   top: "conv_3_pose"
   param { 
     lr_mult: 1
@@ -119,8 +231,14 @@ layer {
   type: "InnerProduct"
   bottom: "conv_5_pose"
   top: "fc_0_pose"
-  param { lr_mult: 1 decay_mult: 1 }
-  param { lr_mult: 2 decay_mult: 0 }
+  param { 
+    lr_mult: 1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 512
     weight_filler {
@@ -145,8 +263,14 @@ layer {
   type: "InnerProduct"
   bottom: "fc_0_pose"
   top: "fc_1_pose"
-  param { lr_mult: 1 decay_mult: 1 }
-  param { lr_mult: 2 decay_mult: 0 }
+  param { 
+    lr_mult: 1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 512
     weight_filler {
@@ -172,8 +296,14 @@ layer {
   type: "InnerProduct"
   bottom: "fc_1_pose"
   top: "temporal_pose_0"
-  param { lr_mult: 0.1 decay_mult: 1 }
-  param { lr_mult: 0.2 decay_mult: 0 }
+  param { 
+    lr_mult: 0.1 
+    decay_mult: 1 
+  }
+  param { 
+    lr_mult: 0.2 
+    decay_mult: 0 
+  }
   inner_product_param {
     num_output: 6
     bias_filler {
@@ -203,20 +333,13 @@ layer {
 # Geometry
 # ----------------------------------------------------------------------
 
-#layer {
-#  name: "SE3"
-#  type: "Python"
-#  bottom: "T_2to1" 
-#  top: "SE3"
-#  python_param { 
-#    module: "pygeometry"
-#    layer: "SE3_Generator_KITTI"
-#  }
-#}
-
-#layer {
-#  name: "silence_train"
-#  type: "Silence"
-#  bottom: "nil_1"
-#  bottom: "nil_2"
-#}
+layer {
+  name: "SE3"
+  type: "Python"
+  bottom: "T_2to1" 
+  top: "SE3"
+  python_param { 
+    module: "pygeometry"
+    layer: "SE3_Generator_KITTI"
+  }
+}
