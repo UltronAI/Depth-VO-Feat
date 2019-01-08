@@ -29,6 +29,34 @@ parser.add_argument("--rotation-mode", default='euler', choices=['euler', 'quat'
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
+def save_result_poses(se3, output_dir, filename):
+    f = open(os.path.join(output_dir, filename), 'a')
+    
+    tx = str(se3[0,3])
+    ty = str(se3[1,3])
+    tz = str(se3[2,3])
+    R00 = str(se3[0,0])
+    R01 = str(se3[0,1])
+    R02 = str(se3[0,2])
+    R10 = str(se3[1,0])
+    R11 = str(se3[1,1])
+    R12 = str(se3[1,2])
+    R20 = str(se3[2,0])
+    R21 = str(se3[2,1])
+    R22 = str(se3[2,2])
+    line_to_write = " ".join([R00, R01, R02, tx, R10, R11, R12, ty, R20, R21, R22, tz])
+
+    f.writelines(line_to_write + "\n")
+    f.close()
+
+def SE3_cam2world(pred_poses):
+    pred_SE3_world = []
+    cur_t = np.eye(4)
+    pred_SE3_world.append(cur_t)
+    for pose in pred_poses:
+        cur_t = np.dot(cur_t, pose)
+        pred_SE3_world.append(cur_t)
+    return pred_SE3_world
 
 @torch.no_grad()
 def main():

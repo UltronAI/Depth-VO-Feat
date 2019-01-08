@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-from network import OdometryNet
+from model import OdometryNet
 import cv2, os
 import numpy as np
 from path import Path
@@ -39,8 +39,6 @@ if args.cuda:
     torch.cuda.manual_seed(args.seed)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")        
 
-best_val_loss = 99999
-
 def save_result_poses(se3, output_dir, filename):
     f = open(os.path.join(output_dir, filename), 'a')
     
@@ -61,18 +59,54 @@ def save_result_poses(se3, output_dir, filename):
     f.writelines(line_to_write + "\n")
     f.close()
 
+def SE3_cam2world(pred_poses):
+    pred_SE3_world = []
+    cur_t = np.eye(4)
+    pred_SE3_world.append(cur_t)
+    for pose in pred_poses:
+        cur_t = np.dot(cur_t, pose)
+        pred_SE3_world.append(cur_t)
+    return pred_SE3_world
+
+def compute_pose_error(gt, pred):
+    RE = 0
+    snippet_length = gt.shape[0]
+    # scale_factor = np.sum(gt[:,:,-1] * pred[:,:,-1])/np.sum(pred[:,:,-1] ** 2)
+    ATE = np.linalg.norm((gt[:,:,-1] - pred[:,:,-1]).reshape(-1))
+    for gt_pose, pred_pose in zip(gt, pred):
+        # Residual matrix to which we compute angle's sin and cos
+        R = gt_pose[:,:3] @ np.linalg.inv(pred_pose[:,:3])
+        s = np.linalg.norm([R[0,1]-R[1,0],
+                            R[1,2]-R[2,1],
+                            R[0,2]-R[2,0]])
+        c = np.trace(R) - 1
+        # Note: we actually compute double of cos and sin, but arctan2 is invariant to scale
+        RE += np.arctan2(s,c)
+
+    return ATE/snippet_length, RE/snippet_length
+
 @torch.no_grad()
 def inference(model, val_loader, output_dir):
     global device
-    model.set_fix_method(nfp.FIX_NONE)
+    # model.set_fix_method(nfp.FIX_NONE)
     model.eval()
+    pred_se3 = []
+    gt_se3 = []
     for _, (data, target) in enumerate(val_loader):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         output = model(data).view(-1, 4, 4).cpu().numpy()[0]
+
+        pred_se3.append(output)
+        gt_se3.append(target.cpu().numpy()[0])
         #print(output.shape)
         #exit(0)
-        save_result_poses(output, output_dir, 'pytorch_fix_pred.txt')
+        # save_result_poses(output, output_dir, 'pytorch_fix_pred.txt')
         #save_result_poses(target.cpu().numpy()[0], output_dir, 'gt.txt')
+    pred_se3_world = SE3_cam2world(pred_se3)
+    gt_se3_world = SE3_cam2world(gt_se3)
+    ate, re = compute_pose_error(gt_se3_world, pred_se3_world)
+    print("{:10.4f}, {:10.4f}".format(ate, re))
+
 
 def main():
     global device
@@ -81,8 +115,8 @@ def main():
     output_dir.makedirs_p()
 
     # Data loading code
-    normalize = pose_transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                                            std=[0.5, 0.5, 0.5])
+    # normalize = pose_transforms.Normalize(mean=[0.5, 0.5, 0.5],
+    #                                         std=[0.5, 0.5, 0.5])
     valid_transform = pose_transforms.Compose([pose_transforms.ArrayToTensor()])
 
     print("=> fetching sequences in '{}'".format(args.dataset_dir))
@@ -97,7 +131,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    model = OdometryNet(bit_width=BITWIDTH).to(device)
+    model = OdometryNet().to(device)
     if args.checkpoint is None:
         model.init_weights()
     elif args.checkpoint:

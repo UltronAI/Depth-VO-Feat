@@ -28,7 +28,7 @@ class pose_framework_KITTI(data.Dataset):
         imgs_path = [self.img_files[index], self.img_files[index+1]]
         pose = self.gt_se3[index + 1]
 #        print("{}, {}".format(imgs_path[0], imgs_path[1]))
-        imgs = [imread(self.data_root/'sequences'/'00'/'image_2'/img).astype(np.float32) for img in imgs_path]
+        imgs = [imread(self.data_root/'sequences'/'09'/'image_2'/img).astype(np.float32) for img in imgs_path]
         imgs = [imresize(img, (self.height, self.width)).astype(np.float32) for img in imgs]
         if self.transform is not None:
 #            print(imgs[0].shape)
@@ -67,6 +67,6 @@ class pose_framework_KITTI(data.Dataset):
     def read_scene_data(self, data_root, filetxt):
         self.data_root = Path(data_root)
 
-        poses = np.genfromtxt(self.data_root/'poses'/'00.txt').astype(np.float32).reshape(-1, 3, 4)
+        poses = np.genfromtxt(self.data_root/'poses'/'09.txt').astype(np.float32).reshape(-1, 3, 4)
         imgs = [line.strip() for line in open(filetxt, 'r').readlines()]
         return imgs, poses
