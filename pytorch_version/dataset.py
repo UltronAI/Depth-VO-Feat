@@ -36,7 +36,7 @@ class pose_framework_KITTI(data.Dataset):
             #exit(0)
             for i in range(len(img_list)-1):
                 imgs = [img_list[i], img_list[i+1]]
-                pose = pose_list[i]
+                pose = pose_list[i+1]
 
                 sample = {'imgs': imgs, 'pose': pose}
                 sequence_set.append(sample)
@@ -55,8 +55,8 @@ class pose_framework_KITTI(data.Dataset):
             img_data[3:] = imgs[0].numpy()
         else:
             img_data = np.zeros((6, self.height, self.width)).astype(np.float32)
-            img_data[:3] = imgs[1]
-            img_data[3:] = imgs[0]
+            img_data[:3] = np.transpose(imgs[1], (2,0,1))
+            img_data[3:] = np.transpose(imgs[0], (2,0,1))
         return torch.from_numpy(img_data).type(torch.FloatTensor), sample['pose']
 
     def __len__(self):

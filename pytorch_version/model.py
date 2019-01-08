@@ -49,8 +49,8 @@ class SE3_Generator_KITTI(torch.autograd.Function):
                 c1 = np.sin(theta[i]) / theta
                 c2 = 2 * np.sin(theta[i]/2) ** 2 / theta[i] ** 2
                 c3 = ((theta[i] - np.sin(theta[i])) / theta[i] ** 3) ** 2
-                print(R[i,0].shape)
-                print(uw_x[i,0].shape)
+                #print(R[i,0].shape)
+                #print(uw_x[i,0].shape)
                 R[i, 0] = R[i, 0] + c1 * uw_x[i, 0] + c2 * np.dot(uw_x[i, 0], uw_x[i, 0])
 
         output = np.zeros((ctx.batch_size, 1, 4, 4))

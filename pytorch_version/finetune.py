@@ -71,21 +71,27 @@ def train(model, train_loader, epoch, optimizer):
     print("")
 
 @torch.no_grad()
-def validate(model, val_loader, epoch, output_dir):
+def validate(model, val_loader, epoch, output_dir, use_float=False):
     global device
     global best_val_loss
-    model.set_fix_method(nfp.FIX_FIXED)
+    if use_float:
+        model.set_fix_method(nfp.FIX_NONE)
+    else:
+        model.set_fix_method(nfp.FIX_FIXED)
     model.eval()
     val_loss = 0
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
-        output = model(data).view(-1, 4, 4)
+        output = model(data).view(-1, 4, 4).type(torch.FloatTensor).to(device)
         val_loss += F.l1_loss(output, target).item()# sum up batch loss
 
     val_loss /= len(val_loader.dataset)
     is_best = val_loss < best_val_loss
-    best_val_loss = val_loss if is_best else best_val_loss
-    print('\nTest set: Average loss: {:.4f} [BEST:{}]\n'.format(val_loss, is_best))
+    if not use_float:
+        best_val_loss = val_loss if is_best else best_val_loss
+    print('\nTest set: Average loss: {:.4f} [BEST:{}]\n'.format(val_loss, is_best if not use_float else None))
+    if use_float:
+        return
     if is_best and args.gpu_id in range(4):
         torch.save(model.state_dict(), output_dir/"best_checkpoint.pth.tar")
     elif is_best:
@@ -99,11 +105,10 @@ def main():
     output_dir.makedirs_p()
 
     # Data loading code
-    normalize = pose_transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                                            std=[0.5, 0.5, 0.5])
+    normalize = pose_transforms.Normalize(mean=[101, 117, 123],
+                                            std=[1, 1, 1])
     train_transform = pose_transforms.Compose([
         pose_transforms.RandomHorizontalFlip(),
-        pose_transforms.RandomScaleCrop(),
         pose_transforms.ArrayToTensor(),
         normalize
     ])
@@ -144,7 +149,11 @@ def main():
     elif args.cuda:
         model = torch.nn.DataParallel(model)
 
+    # model = model.to(device)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
+    print("=> result using float weights")
+    validate(model, val_loader, 0, output_dir, True)
+    print("=> training & validating")
     validate(model, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
         train(model, train_loader, epoch, optimizer)

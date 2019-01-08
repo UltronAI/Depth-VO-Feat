@@ -40,7 +40,7 @@ class ArrayToTensor(object):
             # put it from HWC to CHW format
             im = np.transpose(im, (2, 0, 1))
             # handle numpy array
-            tensors.append(torch.from_numpy(im).float()/255)
+            tensors.append(torch.from_numpy(im).float())
         return tensors #, intrinsics
 
 
