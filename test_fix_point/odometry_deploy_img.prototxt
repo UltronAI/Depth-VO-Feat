@@ -20,7 +20,7 @@ layer{
     mean_value: 123
   }
   image_data_param {
-    root_folder: "/home/gaof/workspace/00/image_2/"
+    root_folder: "/home/share/kitti_odometry/dataset/sequences/00/image_2/"
     source: "/home/gaof/workspace/Depth-VO-Feat/data/train_1.txt"
     new_width: 608
     new_height: 160
@@ -39,7 +39,7 @@ layer{
     mean_value: 123
   }
   image_data_param {
-    root_folder: "/home/gaof/workspace/00/image_2/"
+    root_folder: "/home/share/kitti_odometry/dataset/sequences/00/image_2/"
     source: "/home/gaof/workspace/Depth-VO-Feat/data/train_2.txt"
     new_width: 608
     new_height: 160
@@ -364,16 +364,16 @@ layer {
 # Geometry
 # ----------------------------------------------------------------------
 
-#layer {
-#  name: "SE3"
-#  type: "Python"
-#  bottom: "T_2to1" 
-#  top: "SE3"
-#  python_param { 
-#    module: "pygeometry"
-#    layer: "SE3_Generator_KITTI"
-#  }
-#}
+layer {
+  name: "SE3"
+  type: "Python"
+  bottom: "T_2to1" 
+  top: "SE3"
+  python_param { 
+    module: "pygeometry"
+    layer: "SE3_Generator_KITTI"
+  }
+}
 
 layer {
   name: "silence_train"

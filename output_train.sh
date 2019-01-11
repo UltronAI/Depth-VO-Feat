@@ -1,4 +1,4 @@
-path=/home/gaof/workspace/Depth-VO-Feat/00/image_2
+path=/home/share/kitti_odometry/dataset/sequences/09/image_2
 files=$(ls $path)
 for filename in $files
 do 
