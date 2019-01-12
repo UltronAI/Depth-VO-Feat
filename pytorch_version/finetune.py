@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-from network import OdometryNet
+from fixmodel import FixOdometryNet
 import cv2, os
 import numpy as np
 from path import Path
@@ -22,16 +22,16 @@ BITWIDTH = 8
 # argparser
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--checkpoint', default=None, type=str)
-parser.add_argument('--epochs', type=int, default=100, metavar='N',
-                    help='number of epochs to train (default: 100)')
+parser.add_argument('--epochs', type=int, default=50, metavar='N',
+                    help='number of epochs to train (default: 50)')
 parser.add_argument('--lr', type=float, default=1e-3, metavar='LR',
-                    help='learning rate (default: 0.01)')
+                    help='learning rate (default: 0.001)')
 parser.add_argument('--momentum', type=float, default=0.8, metavar='M',
                     help='SGD momentum (default: 0.8)')
 parser.add_argument('--weight-decay', type=float, default=1e-8, metavar='WD',
                     help='SGD weight decay (default: 1e-8)')
-parser.add_argument('--seed', type=int, default=2018, metavar='S',
-                    help='random seed (default: 2018)')
+parser.add_argument('--seed', type=int, default=2019, metavar='S',
+                    help='random seed (default: 2019)')
 parser.add_argument('-b', '--batch-size', default=64, type=int)
 
 parser.add_argument('-g', '--gpu-id', type=int, metavar='N', default=-1)
@@ -61,7 +61,7 @@ def train(model, train_loader, epoch, optimizer):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         optimizer.zero_grad()
         output = model(data).view(-1, 4, 4)
-        loss = F.l1_loss(output, target)
+        loss = F.smooth_l1_loss(output, target)
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
@@ -83,7 +83,7 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         output = model(data).view(-1, 4, 4).type(torch.FloatTensor).to(device)
-        val_loss += F.l1_loss(output, target).item()# sum up batch loss
+        val_loss += F.smooth_l1_loss(output, target).item()# sum up batch loss
 
     val_loss /= len(val_loader.dataset)
     is_best = val_loss < best_val_loss
@@ -92,7 +92,7 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     print('\nTest set: Average loss: {:.4f} [BEST:{}]\n'.format(val_loss, is_best if not use_float else None))
     if use_float:
         return
-    if is_best and args.gpu_id in range(4):
+    if is_best and args.gpu_id in range(2):
         torch.save(model.state_dict(), output_dir/"best_checkpoint.pth.tar")
     elif is_best:
         torch.save(model.module.state_dict(), output_dir/"best_checkpoint.pth.tar")
@@ -105,14 +105,11 @@ def main():
     output_dir.makedirs_p()
 
     # Data loading code
-    normalize = pose_transforms.Normalize(mean=[101, 117, 123],
-                                            std=[1, 1, 1])
     train_transform = pose_transforms.Compose([
         pose_transforms.RandomHorizontalFlip(),
-        pose_transforms.ArrayToTensor(),
-        normalize
+        pose_transforms.ArrayToTensor()
     ])
-    valid_transform = pose_transforms.Compose([pose_transforms.ArrayToTensor(), normalize])
+    valid_transform = pose_transforms.Compose([pose_transforms.ArrayToTensor()])
 
     print("=> fetching sequences in '{}'".format(args.dataset_dir))
     dataset_dir = Path(args.dataset_dir)
@@ -136,7 +133,17 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    model = OdometryNet(bit_width=BITWIDTH).to(device)
+    input_fix, output_fix = False, False
+    conv_weight_fix = [False, False, False, False, False, False]
+    fc_weight_fix = [False, False, False]
+    conv_output_fix = [False, False, False, False, False, False]
+    fc_output_fix = [False, False, False]
+    model = FixOdometryNet(bit_width=BITWIDTH, input_fix=input_fix, output_fix=output_fix,
+        conv_weight_fix=conv_weight_fix, fc_weight_fix=fc_weight_fix,
+        conv_output_fix=conv_output_fix, fc_output_fix=fc_output_fix
+    ).to(device)
+
+    # init weights of model
     if args.checkpoint is None:
         model.init_weights()
     elif args.checkpoint:
@@ -144,20 +151,21 @@ def main():
         model.load_state_dict(weights)
 
     cudnn.benchmark = True
-    if args.cuda and args.gpu_id in range(4):
+    if args.cuda and args.gpu_id in range(2):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     elif args.cuda:
         model = torch.nn.DataParallel(model)
 
     # model = model.to(device)
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
+    # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> result using float weights")
     validate(model, val_loader, 0, output_dir, True)
     print("=> training & validating")
     validate(model, val_loader, 0, output_dir)
-    for epoch in range(1, args.epochs+1):
-        train(model, train_loader, epoch, optimizer)
-        validate(model, val_loader, epoch, output_dir)
+    # for epoch in range(1, args.epochs+1):
+    #     train(model, train_loader, epoch, optimizer)
+    #     validate(model, val_loader, epoch, output_dir)
 
     model.print_fix_configs()
 

@@ -51,12 +51,28 @@ class pose_framework_KITTI(data.Dataset):
         if self.transform is not None:
             imgs = self.transform(imgs)
             img_data = np.zeros((6, self.height, self.width)).astype(np.float32)
-            img_data[:3] = imgs[1].numpy()
-            img_data[3:] = imgs[0].numpy()
+            imgs_1 = imgs[0].numpy()
+            imgs_1[0] -= 101
+            imgs_1[1] -= 117
+            imgs_1[2] -= 123
+            imgs_2 = imgs[1].numpy()
+            imgs_2[0] -= 101
+            imgs_2[1] -= 117
+            imgs_2[2] -= 123
+            img_data[:3] = imgs_2
+            img_data[3:] = imgs_1
         else:
             img_data = np.zeros((6, self.height, self.width)).astype(np.float32)
-            img_data[:3] = np.transpose(imgs[1], (2,0,1))
-            img_data[3:] = np.transpose(imgs[0], (2,0,1))
+            imgs_1 = np.transpose(imgs[0], (2,0,1))
+            imgs_1[0] -= 101
+            imgs_1[1] -= 117
+            imgs_1[2] -= 123
+            imgs_2 = np.transpose(imgs[1], (2,0,1))
+            imgs_2[0] -= 101
+            imgs_2[1] -= 117
+            imgs_2[2] -= 123
+            img_data[:3] = imgs_2
+            img_data[3:] = imgs_1
         return torch.from_numpy(img_data).type(torch.FloatTensor), sample['pose']
 
     def __len__(self):

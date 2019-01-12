@@ -122,7 +122,7 @@ class OdometryNet(nn.Module):
         super(OdometryNet, self).__init__()
         self.img_width = 608
         self.img_height = 160
-        
+
         conv_channels = [16, 32, 64, 128, 256, 256]
         self.conv1 = conv(6,                conv_channels[0], kernel_size=7)
         self.conv2 = conv(conv_channels[0], conv_channels[1], kernel_size=5)

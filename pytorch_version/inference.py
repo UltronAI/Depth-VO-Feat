@@ -90,22 +90,12 @@ def inference(model, val_loader, output_dir):
     global device
     # model.set_fix_method(nfp.FIX_NONE)
     model.eval()
-    pred_se3 = []
-    gt_se3 = []
     for _, (data, target) in enumerate(val_loader):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         output = model(data).view(-1, 4, 4).cpu().numpy()[0]
 
-        pred_se3.append(output)
-        gt_se3.append(target.cpu().numpy()[0])
-        #print(output.shape)
-        #exit(0)
-        # save_result_poses(output, output_dir, 'pytorch_fix_pred.txt')
-        #save_result_poses(target.cpu().numpy()[0], output_dir, 'gt.txt')
-    pred_se3_world = SE3_cam2world(pred_se3)
-    gt_se3_world = SE3_cam2world(gt_se3)
-    ate, re = compute_pose_error(gt_se3_world, pred_se3_world)
-    print("{:10.4f}, {:10.4f}".format(ate, re))
+        save_result_poses(output, output_dir, 'pytorch_fix_pred.txt')
+        save_result_poses(target.cpu().numpy()[0], output_dir, 'gt.txt')
 
 
 def main():

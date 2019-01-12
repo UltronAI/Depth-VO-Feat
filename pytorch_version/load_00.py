@@ -48,6 +48,8 @@ class pose_framework_KITTI(data.Dataset):
             img_data[3:] = imgs_1
         else:
             img_data = np.zeros((6, self.height, self.width)).astype(np.float32)
+            img_data[:3] = np.transpose(imgs[1], (2,0,1))
+            img_data[3:] = np.transpose(imgs[0], (2,0,1))
             imgs_1 = imgs[0]
             imgs_1[0] -= 101
             imgs_1[1] -= 117

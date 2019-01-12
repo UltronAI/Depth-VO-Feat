@@ -123,8 +123,8 @@ def save_results(pred_poses, save_path):
 def main():
     caffe_model = "/home/gaof/workspace/Depth-VO-Feat/test_fix_point/Full-NYUv2.caffemodel"
 
-    odom_net_1 = get_caffe_model('odometry_deploy_data.prototxt', 'Full-NYUv2.caffemodel')
-    odom_net_2 = get_caffe_model('odometry_deploy_img.prototxt', 'Full-NYUv2.caffemodel')
+    odom_net_float = get_caffe_model('odometry_deploy_data.prototxt', 'Full-NYUv2.caffemodel')
+    odom_net_fix = get_caffe_model('odometry_deploy_img.prototxt', 'Full-NYUv2.caffemodel')
     result_path = "/home/gaof/workspace/Depth-VO-Feat/results"
     data_root = "/home/share/kitti_odometry/dataset/sequences/00/image_2"
 
