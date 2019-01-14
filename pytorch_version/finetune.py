@@ -11,6 +11,7 @@ import cv2, os
 import numpy as np
 from path import Path
 
+from tqdm import tqdm
 import nics_fix_pt as nfp
 import argparse
 import pose_transforms
@@ -57,18 +58,22 @@ def train(model, train_loader, epoch, optimizer):
     global device
     model.set_fix_method(nfp.FIX_AUTO)
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
+    total_loss = 0
+    for batch_idx, (data, target) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch,
+            leave=False, ncols=80):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         optimizer.zero_grad()
-        output = model(data).view(-1, 4, 4)
+        output = model(data).view(-1, 4, 4).type(torch.FloatTensor).to(device)
         loss = F.smooth_l1_loss(output, target)
+        total_loss += loss.item()
         loss.backward()
         optimizer.step()
-        if batch_idx % args.log_interval == 0:
-            print('\rTrain Epoch: {} [{}/{} ({:.0f}%)]  Loss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()), end="")
-    print("")
+        #if batch_idx % args.log_interval == 0:
+        #    print('\rTrain Epoch: {} [{}/{} ({:.0f}%)]  Loss: {:.6f}'.format(
+        #        epoch, batch_idx * len(data), len(train_loader.dataset),
+        #        100. * batch_idx / len(train_loader), loss.item()), end="")
+        #print("")
+    print("Train epoch {}: mean loss = {:.6f}".format(epoch, total_loss/len(train_loader)))
 
 @torch.no_grad()
 def validate(model, val_loader, epoch, output_dir, use_float=False):
@@ -83,13 +88,13 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         output = model(data).view(-1, 4, 4).type(torch.FloatTensor).to(device)
-        val_loss += F.smooth_l1_loss(output, target).item()# sum up batch loss
+        val_loss += F.mse_loss(output, target).item()# sum up batch loss
 
     val_loss /= len(val_loader.dataset)
     is_best = val_loss < best_val_loss
     if not use_float:
         best_val_loss = val_loss if is_best else best_val_loss
-    print('\nTest set: Average loss: {:.4f} [BEST:{}]\n'.format(val_loss, is_best if not use_float else None))
+    print('Test set: Average loss: {:.4f} [BEST:{}]'.format(val_loss, is_best if not use_float else 'N/A'))
     if use_float:
         return
     if is_best and args.gpu_id in range(2):
@@ -123,7 +128,7 @@ def main():
     val_set = pose_framework_KITTI(
         dataset_dir, args.test_sequences, 
         transform=valid_transform,
-        seed=args.seed
+        seed=args.seed, shuffle=False
     )
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=args.batch_size, shuffle=True,
@@ -134,9 +139,11 @@ def main():
 
     # create model
     input_fix, output_fix = False, False
-    conv_weight_fix = [False, False, False, False, False, False]
+    #conv_weight_fix = [False, False, False, False, False, False]
+    conv_weight_fix = [True] * 6
     fc_weight_fix = [False, False, False]
-    conv_output_fix = [False, False, False, False, False, False]
+    #conv_output_fix = [False, False, False, False, False, False]
+    conv_output_fix = [True] * 6
     fc_output_fix = [False, False, False]
     model = FixOdometryNet(bit_width=BITWIDTH, input_fix=input_fix, output_fix=output_fix,
         conv_weight_fix=conv_weight_fix, fc_weight_fix=fc_weight_fix,
@@ -163,9 +170,9 @@ def main():
     validate(model, val_loader, 0, output_dir, True)
     print("=> training & validating")
     validate(model, val_loader, 0, output_dir)
-    # for epoch in range(1, args.epochs+1):
-    #     train(model, train_loader, epoch, optimizer)
-    #     validate(model, val_loader, epoch, output_dir)
+    for epoch in range(1, args.epochs+1):
+        train(model, train_loader, epoch, optimizer)
+        validate(model, val_loader, epoch, output_dir)
 
     model.print_fix_configs()
 

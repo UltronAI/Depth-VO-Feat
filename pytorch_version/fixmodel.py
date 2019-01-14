@@ -37,7 +37,7 @@ class SE3_Generator_KITTI(torch.autograd.Function):
                 R[i, 0] += uw_x[i, 0]
                 continue
             else:
-                c1 = np.sin(theta[i]) / theta
+                c1 = np.sin(theta[i]) / theta[i]
                 c2 = 2 * np.sin(theta[i]/2) ** 2 / theta[i] ** 2
                 c3 = ((theta[i] - np.sin(theta[i])) / theta[i] ** 3) ** 2
                 #print(R[i,0].shape)
@@ -245,7 +245,7 @@ class FixOdometryNet(nnf.FixTopModule):
             self.fc2_weight_fix_params = _generate_default_fix_cfg(['weight', 'bias'], method=1, bitwidth=bit_width)
             self.fc2 = nnf.Linear_fix(512, 512, nf_fix_params=self.fc2_weight_fix_params)
         else:
-            self.fc1 = nn.Linear(512, 512)
+            self.fc2 = nn.Linear(512, 512)
         if self.fc_output_fix[1]:
             self.fc2_output_fix_params = _generate_default_fix_cfg(['weight', 'bias'], method=1, bitwidth=bit_width)
             self.fix_fc2 = nnf.Activation_fix(nf_fix_params=self.fc2_output_fix_params)

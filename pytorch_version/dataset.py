@@ -73,7 +73,7 @@ class pose_framework_KITTI(data.Dataset):
             imgs_2[2] -= 123
             img_data[:3] = imgs_2
             img_data[3:] = imgs_1
-        return torch.from_numpy(img_data).type(torch.FloatTensor), sample['pose']
+        return torch.from_numpy(img_data).type(torch.FloatTensor), torch.from_numpy(sample['pose']).type(torch.FloatTensor)
 
     def __len__(self):
         return len(self.samples)
