@@ -2,6 +2,9 @@
 
 from __future__ import print_function
 
+import warnings
+warnings.filterwarnings('ignore')
+
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -58,30 +61,35 @@ best_val_loss = 99999
 def train(float_model, fix_model, train_loader, epoch, optimizer):
     global device
     float_model.set_fix_method(nfp.FIX_NONE)
-    float_model.train()
+    float_model.eval()
     fix_model.set_fix_method(nfp.FIX_AUTO)
     fix_model.train()
     total_loss_float = 0
     total_loss_fix = 0
+    total_loss = 0
     for batch_idx, (data, target) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch,
             leave=False, ncols=80):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         optimizer.zero_grad()
 
         float_output = float_model(data).view(-1, 4, 4).type(torch.FloatTensor).to(device)
-        loss_1 = F.smooth_l1_loss(float_output, target)
+        loss_1 = F.mse_loss(float_output, target)
         total_loss_float += loss_1.item()
+        #print(loss_1.item())
+        #exit(0)
 
         fix_output = fix_model(data).view(-1, 4, 4).type(torch.FloatTensor).to(device)
-        loss_2 = F.smooth_l1_loss(fix_output, target)
+        loss_2 = F.mse_loss(fix_output, target)
         total_loss_fix += loss_2.item()
 
-        loss_3 = F.kl_div(fix_output, float_output)
+        loss_3 = F.kl_div(fix_output, float_output, reduction='mean')
 
-        loss = loss_1 + loss_2 + loss_3
+        loss = 0.7*loss_2 + 0.3*loss_3
+        total_loss += loss.item()
+
         loss.backward()
         optimizer.step()
-    print("Train epoch {}: mean loss (float) = {:.6f} | mean loss (fix) = {:.6f}".format(epoch, total_loss_float/len(train_loader), total_loss_fix/len(train_loader)))
+    print("Train epoch {}: mean loss (float) = {:.6f} | mean loss (fix) = {:.6f} | mean loss = {:.6f}".format(epoch, total_loss_float/len(train_loader), total_loss_fix/len(train_loader), total_loss/len(train_loader)))
 
 @torch.no_grad()
 def validate(model, val_loader, epoch, output_dir, use_float=False):
@@ -170,7 +178,7 @@ def main():
     if args.fix_checkpoint is None:
         fix_model.init_weights()
     else:
-        fix_weights = torch.load(args.float_checkpoint)
+        fix_weights = torch.load(args.fix_checkpoint)
         fix_model.load_state_dict(fix_weights)
 
     cudnn.benchmark = True
@@ -182,18 +190,19 @@ def main():
 
     # model = model.to(device)
     optim_params = [
-        {'params': float_model.parameters(), 'lr': args.lr},
+        # {'params': float_model.parameters(), 'lr': args.lr},
         {'params': fix_model.parameters(), 'lr': args.lr}
     ]
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     optimizer = optim.Adam(optim_params, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
-    validate(float_model, val_loader, 0, output_dir, True)
-    validate(fix_model, val_loader, 0, output_dir)
+    #validate(float_model, val_loader, 0, output_dir, True)
+    #validate(fix_model, val_loader, 0, output_dir)
     print("=> training & validating")
     for epoch in range(1, args.epochs+1):
         train(float_model, fix_model, train_loader, epoch, optimizer)
-        validate(float_model, val_loader, 0, output_dir, True)
+        if epoch == 1:
+            validate(float_model, val_loader, 0, output_dir, True)
         validate(fix_model, val_loader, epoch, output_dir)
 
     fix_model.print_fix_configs()
