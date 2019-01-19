@@ -103,7 +103,7 @@ def SE3_cam2world(pred_poses):
 def save_results(pred_poses, save_path):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
-    with open(os.path.join(save_path, 'caffe_pred_1.txt'), 'w') as f:
+    with open(os.path.join(save_path, 'caffe_pred.txt'), 'w') as f:
         for se3 in pred_poses:
             tx = str(se3[0,3])
             ty = str(se3[1,3])
@@ -123,8 +123,8 @@ def save_results(pred_poses, save_path):
 def main():
     caffe_model = "/home/gaof/workspace/Depth-VO-Feat/test_fix_point/Full-NYUv2.caffemodel"
 
-    odom_net_float = get_caffe_model('odometry_deploy_data.prototxt', 'Full-NYUv2.caffemodel')
-    odom_net_fix = get_caffe_model('odometry_deploy_img.prototxt', 'Full-NYUv2.caffemodel')
+    odom_net_1 = get_caffe_model('odometry_deploy_data.prototxt', 'Temporal.caffemodel')
+    odom_net_2 = get_caffe_model('odometry_deploy_img.prototxt', 'Full-NYUv2.caffemodel')
     result_path = "/home/gaof/workspace/Depth-VO-Feat/results"
     data_root = "/home/share/kitti_odometry/dataset/sequences/00/image_2"
 
@@ -137,8 +137,8 @@ def main():
             odom_net_1.blobs['data'].data[0, :3] = img2
             odom_net_1.blobs['data'].data[0, 3:] = img1
             odom_net_1.forward()
-            odom_net_2.forward()
-            assert (odom_net_2.blobs['SE3'].data[0,0] == odom_net_1.blobs['SE3'].data[0,0]).all()
+            #odom_net_2.forward()
+            #assert (odom_net_2.blobs['SE3'].data[0,0] == odom_net_1.blobs['SE3'].data[0,0]).all()
             pred_poses.append(odom_net_1.blobs['SE3'].data[0,0].copy())
 #    se3 = SE3_cam2world(pred_poses) 
     save_results(pred_poses, result_path)

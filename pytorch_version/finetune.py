@@ -2,7 +2,11 @@
 
 from __future__ import print_function
 
+import warnings
+warnings.filterwarnings('ignore')
+
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
@@ -27,8 +31,8 @@ parser.add_argument('--epochs', type=int, default=50, metavar='N',
                     help='number of epochs to train (default: 50)')
 parser.add_argument('--lr', type=float, default=1e-3, metavar='LR',
                     help='learning rate (default: 0.001)')
-parser.add_argument('--momentum', type=float, default=0.8, metavar='M',
-                    help='SGD momentum (default: 0.8)')
+parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
+                    help='SGD momentum (default: 0.9)')
 parser.add_argument('--weight-decay', type=float, default=1e-8, metavar='WD',
                     help='SGD weight decay (default: 1e-8)')
 parser.add_argument('--seed', type=int, default=2019, metavar='S',
@@ -58,13 +62,15 @@ def train(model, train_loader, epoch, optimizer):
     global device
     model.set_fix_method(nfp.FIX_AUTO)
     model.train()
+    criterion = OdometryLoss().to(device)
     total_loss = 0
     for batch_idx, (data, target) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch,
             leave=False, ncols=80):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         optimizer.zero_grad()
-        output = model(data).view(-1, 4, 4).type(torch.FloatTensor).to(device)
-        loss = F.smooth_l1_loss(output, target)
+        output, _ = model(data)
+        output = output.view(-1, 4, 4).type(torch.FloatTensor).to(device)
+        loss = criterion(output, target)
         total_loss += loss.item()
         loss.backward()
         optimizer.step()
@@ -87,8 +93,9 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     val_loss = 0
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
-        output = model(data).view(-1, 4, 4).type(torch.FloatTensor).to(device)
-        val_loss += F.mse_loss(output, target).item()# sum up batch loss
+        output, _ = model(data)
+        output = output.view(-1, 4, 4).type(torch.FloatTensor).to(device)
+        val_loss += F.l1_loss(output, target).item()# sum up batch loss
 
     val_loss /= len(val_loader.dataset)
     is_best = val_loss < best_val_loss
@@ -102,6 +109,19 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     elif is_best:
         torch.save(model.module.state_dict(), output_dir/"best_checkpoint.pth.tar")
 
+class OdometryLoss(nn.modules.Module):
+    def __init__(self):
+        super(OdometryLoss, self).__init__()
+        self.gt_std = [5.2700e-4, 3.0793e-3, 2.0979e-2, 3.0139e-2,
+                       3.0693e-3, 1.7494e-5, 3.7067e-3, 9.9260e-3,
+                       2.0980e-2, 3.6987e-3, 5.2479e-4, 2.7170e-1]
+
+    def forward(self, pred, gt):
+        batch_size = pred.size(0)
+        pred_ = torch.exp(torch.cat((pred[:, :, :3], pred[:, :, 3].view(-1, 4, 1)), 2))
+        gt_ = torch.exp(torch.cat((gt[:, :, :3], gt[:, :, 3].view(-1, 4, 1)), 2))
+        loss = torch.sqrt(F.mse_loss(pred_, gt_))
+        return loss 
 
 def main():
     global device
@@ -138,13 +158,13 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    input_fix, output_fix = False, False
+    input_fix, output_fix = True, True
     #conv_weight_fix = [False, False, False, False, False, False]
     conv_weight_fix = [True] * 6
-    fc_weight_fix = [False, False, False]
+    fc_weight_fix = [True, True, True]
     #conv_output_fix = [False, False, False, False, False, False]
     conv_output_fix = [True] * 6
-    fc_output_fix = [False, False, False]
+    fc_output_fix = [True, True, True]
     model = FixOdometryNet(bit_width=BITWIDTH, input_fix=input_fix, output_fix=output_fix,
         conv_weight_fix=conv_weight_fix, fc_weight_fix=fc_weight_fix,
         conv_output_fix=conv_output_fix, fc_output_fix=fc_output_fix
@@ -166,7 +186,7 @@ def main():
     # model = model.to(device)
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
-    print("=> result using float weights")
+    print("=> validating before training")
     validate(model, val_loader, 0, output_dir, True)
     print("=> training & validating")
     validate(model, val_loader, 0, output_dir)

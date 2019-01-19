@@ -291,7 +291,7 @@ class FixOdometryNet(nnf.FixTopModule):
         temporal_pose = self.fix_fc_pose(self.fc_pose(out_fc2))
         temporal_pose = temporal_pose.view(temporal_pose.size(0), temporal_pose.size(1), 1, -1)
         se3 = self.fix_output(generate_se3(temporal_pose))
-        return se3
+        return se3, out_conv6
 
     def init_weights(self):
         for m in self.modules():

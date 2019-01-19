@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-from model import OdometryNet
+from fixmodel import FixOdometryNet
 import cv2, os
 import numpy as np
 from path import Path
@@ -88,14 +88,15 @@ def compute_pose_error(gt, pred):
 @torch.no_grad()
 def inference(model, val_loader, output_dir):
     global device
-    # model.set_fix_method(nfp.FIX_NONE)
+    model.set_fix_method(nfp.FIX_FIXED)
     model.eval()
     for _, (data, target) in enumerate(val_loader):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
-        output = model(data).view(-1, 4, 4).cpu().numpy()[0]
+        output, _ = model(data)
+        output = output.view(-1, 4, 4).cpu().numpy()[0]
 
         save_result_poses(output, output_dir, 'pytorch_fix_pred.txt')
-        save_result_poses(target.cpu().numpy()[0], output_dir, 'gt.txt')
+        #save_result_poses(target.cpu().numpy()[0], output_dir, 'gt.txt')
 
 
 def main():
@@ -121,7 +122,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    model = OdometryNet().to(device)
+    model = FixOdometryNet(bit_width=8).to(device)
     if args.checkpoint is None:
         model.init_weights()
     elif args.checkpoint:
