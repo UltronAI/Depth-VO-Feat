@@ -30,3 +30,14 @@
 
 如果要修改定点模型，可以修改`input_fix`,`output_fix`,`conv_weight_fix`,`conv_output_fix`,`fc_weight_fix`,`fc_output_fix`，共6个conv层，3个fc层
 
+### 7. inference.py
+
+训好模型后，可以使用这个脚本获取的估计的位姿txt文件
+
+`python inference.py --checkpoint checkpoints/$model -g0 --dataset-dir /home/share/kitti_odometry/dataset/ --output-dir output`
+
+获取到文件之后就可以使用DSLAM_PySim做仿真了，绘图看下效果如何，具体操作看DSLAM_PySim中的说明
+
+### 8. ../run.py
+
+如果将pytorch模型转换成了caffe模型，可以使用run.py存储caffe模型输出的位姿，修改其中的caffe模型的路径，和存储路径即可
