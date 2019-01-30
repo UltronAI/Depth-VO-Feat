@@ -202,11 +202,11 @@ class kittiEigenBuilder():
             txt_to_save = "/".join([self.dataset_dir,"val_right_2.txt"])
             self.saveTxt(txt_to_save, self.R2_set[start_idx:])
 
-            lmdb_to_save = "/".join([self.dataset_dir,"val_K"])
-            self.saveLmdb(lmdb_to_save, np.expand_dims(np.expand_dims(np.asarray(self.K[start_idx:]),3),4))
+            npy_to_save = "/".join([self.dataset_dir,"val_K"])
+            self.saveNpy(npy_to_save, np.expand_dims(np.expand_dims(np.asarray(self.K[start_idx:]),3),4))
 
-            lmdb_to_save = "/".join([self.dataset_dir,"val_T_R2L"])
-            self.saveLmdb(lmdb_to_save, np.expand_dims(np.expand_dims(np.asarray(self.T[start_idx:]),3),4))
+            npy_to_save = "/".join([self.dataset_dir,"val_T_R2L"])
+            self.saveNpy(npy_to_save, np.expand_dims(np.expand_dims(np.asarray(self.T[start_idx:]),3),4))
 
             print("Dataset built! Number of validation instances: " + str(len(self.L1_set[start_idx:])))
 
@@ -216,6 +216,16 @@ class kittiEigenBuilder():
         for line in img_list:
             f.writelines(line+"\n")
         f.close()
+
+    def saveNpy(self, path, np_arr):
+        # input: np_arr: shape = (N,C,H,W)
+        N = np_arr.shape[0]
+        for i in range(N):
+            arr = np_arr[i]
+            str_id = '{:08}'.format(i)
+            with open("/".join([path, path.split('/')[-1]+'.txt']), 'a') as f:
+                f.writelines(str_id + '\n')
+            np.save("/".join([path, str_id + '.npy']), arr)
 
 
     def saveLmdb(self, path, np_arr):
