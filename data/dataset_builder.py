@@ -34,7 +34,7 @@ class kittiEigenBuilder():
                          '2011_09_26/2011_09_26_drive_0070_sync',
                          '2011_09_26/2011_09_26_drive_0061_sync',
                          '2011_09_26/2011_09_26_drive_0091_sync',
-                         '2011_09_26/2011_09_29_drive_0026_sync',
+                         '2011_09_29/2011_09_29_drive_0026_sync',
                          '2011_09_26/2011_09_26_drive_0014_sync',
                          '2011_09_26/2011_09_26_drive_0104_sync',
                          '2011_09_26/2011_09_26_drive_0001_sync',
@@ -49,7 +49,7 @@ class kittiEigenBuilder():
                          '2011_09_26/2011_09_26_drive_0005_sync',
                          '2011_09_26/2011_09_26_drive_0011_sync',
                          '2011_09_26/2011_09_26_drive_0032_sync',
-                         '2011_09_26/2011_09_28_drive_0001_sync',
+                         '2011_09_28/2011_09_28_drive_0001_sync',
                          '2011_09_26/2011_09_26_drive_0113_sync']
 
 
@@ -79,10 +79,10 @@ class kittiEigenBuilder():
         scenes = self.train_scenes
 
         for cnt, scene in enumerate(scenes):
-            print "Getting data. [Scene: ", cnt,  "/" , len(scenes), "]"
+            print("Getting data. [Scene: " + str(cnt) +  "/"  + str(len(scenes)) + "]")
             seq_path = "/".join([self.raw_data_dir, scene,"image_02", "data"])
             seq_end = len(os.listdir(seq_path))-1
-            for i in xrange(0, seq_end - self.train_frame_distance + 1):
+            for i in range(0, seq_end - self.train_frame_distance + 1):
                 L1 = "/".join([self.raw_data_dir, scene, "image_02", "data", '{:010}'.format(i)]) + ".png"
                 L2 = "/".join([self.raw_data_dir, scene, "image_02", "data", '{:010}'.format(i+self.train_frame_distance)]) + ".png"
                 R1 = "/".join([self.raw_data_dir, scene, "image_03", "data", '{:010}'.format(i)]) + ".png"
@@ -93,7 +93,7 @@ class kittiEigenBuilder():
                 self.R1_set.append(R1)
                 self.R2_set.append(R2)
 
-                kt_scene =  "/".join([self.raw_data_dir] + scene.split('/')[0])
+                kt_scene =  "/".join([self.raw_data_dir, scene.split('/')[0]])
 
                 KT = self.getKT(kt_scene) #Get K and T(right-to-left)
                 self.K.append(KT[:4])
@@ -108,7 +108,7 @@ class kittiEigenBuilder():
         # ----------------------------------------------------------------------
         # Get original K
         # ----------------------------------------------------------------------
-        f = open(scene+"/calib/calib_cam_to_cam.txt", 'r')
+        f = open(scene+"/calib_cam_to_cam.txt", 'r')
         camTxt = f.readlines()
         f.close()
         K_dict = {}
@@ -187,7 +187,7 @@ class kittiEigenBuilder():
 
             lmdb_to_save = "/".join([self.dataset_dir,"train_T_R2L"])
             self.saveLmdb(lmdb_to_save, np.expand_dims(np.expand_dims(np.asarray(self.T[start_idx:end_idx]),3),4))
-            print "Dataset built! Number of training instances: ", len(self.L1_set[start_idx:end_idx])
+            print("Dataset built! Number of training instances: " + str(len(self.L1_set[start_idx:end_idx])))
         else:
             start_idx = 22600
             txt_to_save = "/".join([self.dataset_dir,"val_left_1.txt"])
@@ -208,7 +208,7 @@ class kittiEigenBuilder():
             lmdb_to_save = "/".join([self.dataset_dir,"val_T_R2L"])
             self.saveLmdb(lmdb_to_save, np.expand_dims(np.expand_dims(np.asarray(self.T[start_idx:]),3),4))
 
-            print "Dataset built! Number of validation instances: ", len(self.L1_set[start_idx:])
+            print("Dataset built! Number of validation instances: " + str(len(self.L1_set[start_idx:])))
 
 
     def saveTxt(self, path, img_list):
@@ -247,7 +247,8 @@ parser.add_argument('--image_size', type=list, default=[160, 608], help='Image s
 parser.add_argument('--with_val', type=bool, default=False, help='Building validation set as well')
 
 args = parser.parse_args()
-args.image_size = [int("".join(args.image_size).split(",")[0][1:]), int("".join(args.image_size).split(",")[1][:-1])]
+#args.image_size = [int("".join(args.image_size).split(",")[0][1:]), int("".join(args.image_size).split(",")[1][:-1])]
+args.image_size = [160, 608]
 
 if args.builder == "kitti_eigen":
     builder = kittiEigenBuilder()
