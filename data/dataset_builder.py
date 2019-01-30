@@ -11,46 +11,46 @@ import argparse
 import sys
 from os.path import expanduser
 home = expanduser("~")
-caffe_root = home + '/caffe/'  # this file should be run from {caffe_root}/examples (otherwise change this line)
+caffe_root = home + '/caffe-comp/'  # this file should be run from {caffe_root}/examples (otherwise change this line)
 sys.path.insert(0, caffe_root + 'python')
 import caffe
 
 class kittiEigenBuilder():
     def __init__(self):
         self.train_scenes = [
-                         'residential/2011_09_30_drive_0033',
-                         'residential/2011_09_26_drive_0087',
-                         'residential/2011_09_30_drive_0020',
-                         'residential/2011_09_26_drive_0039',
-                         'residential/2011_09_30_drive_0028',
-                         'city/2011_09_26_drive_0018',
-                         'residential/2011_09_26_drive_0035',
-                         'city/2011_09_26_drive_0057',
-                         'road/2011_10_03_drive_0042',
-                         'residential/2011_09_26_drive_0022',
-                         'road/2011_09_26_drive_0028',
-                         'residential/2011_10_03_drive_0034',
-                         'road/2011_09_29_drive_0004',
-                         'road/2011_09_26_drive_0070',
-                         'residential/2011_09_26_drive_0061',
-                         'city/2011_09_26_drive_0091',
-                         'city/2011_09_29_drive_0026',
-                         'city/2011_09_26_drive_0014',
-                         'city/2011_09_26_drive_0104',
-                         'city/2011_09_26_drive_0001',
-                         'city/2011_09_26_drive_0017',
-                         'city/2011_09_26_drive_0051',
-                         'residential/2011_09_30_drive_0034',
-                         'city/2011_09_26_drive_0095',
-                         'city/2011_09_26_drive_0060',
-                         'residential/2011_09_26_drive_0079',
-                         'road/2011_09_26_drive_0015',
-                         'residential/2011_09_26_drive_0019',
-                         'city/2011_09_26_drive_0005',
-                         'city/2011_09_26_drive_0011',
-                         'road/2011_09_26_drive_0032',
-                         'city/2011_09_28_drive_0001',
-                         'city/2011_09_26_drive_0113']
+                         '2011_09_30/2011_09_30_drive_0033_sync',
+                         '2011_09_26/2011_09_26_drive_0087_sync',
+                         '2011_09_30/2011_09_30_drive_0020_sync',
+                         '2011_09_26/2011_09_26_drive_0039_sync',
+                         '2011_09_30/2011_09_30_drive_0028_sync',
+                         '2011_09_26/2011_09_26_drive_0018_sync',
+                         '2011_09_26/2011_09_26_drive_0035_sync',
+                         '2011_09_26/2011_09_26_drive_0057_sync',
+                         '2011_10_03/2011_10_03_drive_0042_sync',
+                         '2011_09_26/2011_09_26_drive_0022_sync',
+                         '2011_09_26/2011_09_26_drive_0028_sync',
+                         '2011_10_03/2011_10_03_drive_0034_sync',
+                         '2011_09_29/2011_09_29_drive_0004_sync',
+                         '2011_09_26/2011_09_26_drive_0070_sync',
+                         '2011_09_26/2011_09_26_drive_0061_sync',
+                         '2011_09_26/2011_09_26_drive_0091_sync',
+                         '2011_09_26/2011_09_29_drive_0026_sync',
+                         '2011_09_26/2011_09_26_drive_0014_sync',
+                         '2011_09_26/2011_09_26_drive_0104_sync',
+                         '2011_09_26/2011_09_26_drive_0001_sync',
+                         '2011_09_26/2011_09_26_drive_0017_sync',
+                         '2011_09_26/2011_09_26_drive_0051_sync',
+                         '2011_09_30/2011_09_30_drive_0034_sync',
+                         '2011_09_26/2011_09_26_drive_0095_sync',
+                         '2011_09_26/2011_09_26_drive_0060_sync',
+                         '2011_09_26/2011_09_26_drive_0079_sync',
+                         '2011_09_26/2011_09_26_drive_0015_sync',
+                         '2011_09_26/2011_09_26_drive_0019_sync',
+                         '2011_09_26/2011_09_26_drive_0005_sync',
+                         '2011_09_26/2011_09_26_drive_0011_sync',
+                         '2011_09_26/2011_09_26_drive_0032_sync',
+                         '2011_09_26/2011_09_28_drive_0001_sync',
+                         '2011_09_26/2011_09_26_drive_0113_sync']
 
 
 
@@ -93,7 +93,7 @@ class kittiEigenBuilder():
                 self.R1_set.append(R1)
                 self.R2_set.append(R2)
 
-                kt_scene =  "/".join([self.raw_data_dir, scene])
+                kt_scene =  "/".join([self.raw_data_dir] + scene.split('/')[0])
 
                 KT = self.getKT(kt_scene) #Get K and T(right-to-left)
                 self.K.append(KT[:4])
