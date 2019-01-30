@@ -20,7 +20,8 @@ import nics_fix_pt as nfp
 import argparse
 import pose_transforms
 from dataset import pose_framework_KITTI
-from se3_generate import *
+from un_dataset import dataset
+# from se3_generate import *
 from inverse_warp import inverse_warp
 
 # hyper-parameters
@@ -65,51 +66,56 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
     global device
     odometry_net.train()
     depth_net.train()
-    for batch_idx, (img_R1, img_L2, img_R2, raw_K, T_R2L, target) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch,
+    total_loss = 0
+    for batch_idx, (img_R1, img_L2, img_R2, intrinsics, inv_intrinsics, T_R2L) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch,
             leave=False, ncols=80):
         img_R1 = img_R1.type(torch.FloatTensor).to(device)
         img_R2 = img_R2.type(torch.FloatTensor).to(device)
         img_L2 = img_L2.type(torch.FloatTensor).to(device)
-        raw_K = raw_K.type(torch.FloatTensor).to(device)
+        intrinsics = intrinsics.type(torch.FloatTensor).to(device)
+        inv_intrinsics = inv_intrinsics.type(torch.FloatTensor).to(device)
         T_R2L = T_R2L.type(torch.FloatTensor).to(device)
-        target = target.type(torch.FloatTensor).to(device)
 
         img_R = torch.cat((img_R2, img_R1), dim=1)
-        K = torch.cat((raw_K, raw_K), dim=0)
+        # K = torch.cat((raw_K, raw_K), dim=0)
 
-        # TODO: scale: img_r1/r2/l2
-        norm_img_L2 = 0.004 * img_L2
-        norm_img_R1 = 0.004 * img_R1
-        norm_img_R2 = 0.003 * img_R2
+        # norm_img_L2 = 0.004 * img_L2
+        # norm_img_R1 = 0.004 * img_R1
+        # norm_img_R2 = 0.003 * img_R2
 
         inv_depth_img_R2 = depth_net(img_R2)
         T_2to1 = odometry_net(img_R)
-        T = torch.cat((T_R2L, T_2to1), div=0)
+        # T = torch.cat((T_R2L, T_2to1), div=0)
 
-        SE3 = generate_se3(T)
-        inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = torch.pow(0.0001 + inv_depth, -1)
+        # SE3 = generate_se3(T)
+        # inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
+        depth = torch.pow(0.0001 + inv_depth_img_R2, -1)
+
+        warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
+        warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
 
         # pts3D = geo_transform(depth, SE3, K)
         # proj_coords = pin_hole_project(pts3D, K)
 
-        Isrc = torch.cat((norm_img_L2, norm_img_R1), dim=0)
+        # Isrc = torch.cat((norm_img_L2, norm_img_R1), dim=0)
         # warp_Itgt = inverse_warp(Isrc, proj_coords)
-        warp_Itgt = inverse_warp(Isrc, depth, SE3, K)
+        # warp_Itgt = inverse_warp(Isrc, depth, SE3, K)
 
-        warp_Itgt_LR = warp_Itgt[:10, :, :, :]
-        warp_Itgt_R12 = warp_Itgt[10:, :, :, :]
+        # warp_Itgt_LR = warp_Itgt[:10, :, :, :]
+        # warp_Itgt_R12 = warp_Itgt[10:, :, :, :]
 
-        warp_error_LR  = F.l1_loss(warp_Itgt_LR, norm_img_R2)
-        warp_error_R12 = F.l1_loss(warp_Itgt_R12, norm_img_R2)
+        warp_error_LR  = F.l1_loss(warp_Itgt_LR, img_R2)
+        warp_error_R12 = F.l1_loss(warp_Itgt_R12, img_R2)
 
-        smooth_loss = smooth_loss(depth)
+        smooth_error = smooth_loss(depth)
 
-        loss = warp_error_LR + warp_error_R12 + smooth_loss
+        loss = warp_error_LR + warp_error_R12 + smooth_error
+        total_loss += loss.item()
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+    print("Train epoch {}: mean loss = {:.6f}".format(epoch, total_loss/len(train_loader)))
 
 
 
@@ -141,7 +147,7 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     elif is_best:
         torch.save(model.module.state_dict(), output_dir/"best_checkpoint.pth.tar")
 
-def smooth_loss(pred_map, scale_factor):
+def smooth_loss(pred_map, scale_factor=1):
     def gradient(pred):
         D_dy = pred[:, :, 1:] - pred[:, :, :-1]
         D_dx = pred[:, :, :, 1:] - pred[:, :, :, :-1]
@@ -178,11 +184,7 @@ def main():
     print("=> fetching sequences in '{}'".format(args.dataset_dir))
     dataset_dir = Path(args.dataset_dir)
     print("=> preparing train set") 
-    train_set = pose_framework_KITTI(
-        dataset_dir, args.train_sequences, 
-        transform=train_transform,
-        seed=args.seed
-    )
+    train_set = dataset(transform=train_transform)
     print("=> preparing val set")
     val_set = pose_framework_KITTI(
         dataset_dir, args.test_sequences, 

@@ -51,8 +51,28 @@ def pin_hole_project(transformed_points, cam_intrinsic):
 
 def inverse_warp(img, proj_coords):
     # bottom[0] --> Image (N,C,H,W)
-    # bottom[1] --> projection coordinate (N,K,H,W)
+    # bottom[1] --> projection coordinate (N,2,H,W)
     # top[0]    --> Warp iamge (N,C,H,W)
     num = img.size(0)
+    channel = img.size(1)
     height = img.size(2)
     width = img.size(3)
+    warp_img = torch.from_numpy(np.zeros((num, channel, height, width)))
+
+    proj_xx = proj_coords[:, 0, :, :]
+    proj_yy = proj_coords[:, 1, :, :]
+
+    proj_x1 = torch.floor(proj_xx)
+    proj_y1 = torch.floor(proj_yy)
+
+    proj_x2 = proj_x1 + torch.ones_like(proj_x1)
+    proj_y2 = proj_y1 + torch.ones_like(proj_y1)
+
+    proj_wx2 = proj_xx - proj_x1
+    proj_wx1 = proj_x2 - proj_xx
+    proj_wy2 = proj_yy - proj_y1
+    proj_wy1 = proj_y2 - proj_yy
+
+    
+
+    return warp_img
