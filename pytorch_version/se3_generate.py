@@ -1,33 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from torch.nn.init import xavier_uniform_, zeros_
 from torch.autograd.function import once_differentiable
-
-def conv_relu(in_channels, out_channels, kernel_size=3, padding=1, stride=2):
-    return nn.Sequential(
-        nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding, stride=stride),
-        nn.ReLU(inplace=True)
-    )
-
-def fc_relu(in_length, out_length):
-    return nn.Sequential(
-        nn.Linear(in_length, out_length),
-        nn.ReLU(inplace=True)
-    )
-
-def conv_bn(in_channels, out_channels, kernel_size=3, padding=1, stride=2):
-    return nn.Sequential(
-        nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding, stride=stride),
-        nn.BatchNorm2d(out_channels)
-    )
-
-def conv_bn_relu(in_channels, out_channels, kernel_size=3, padding=1, stride=2):
-    return nn.Sequential(
-        nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding, stride=stride),
-        nn.BatchNorm2d(out_channels),
-        nn.ReLU(inplace=True)
-    )
 
 
 class SE3_Generator_KITTI(torch.autograd.Function):
@@ -129,83 +103,3 @@ class SE3_Generator_KITTI(torch.autograd.Function):
         return torch.from_numpy(grad_input).type(torch.FloatTensor).cuda()
 
 generate_se3 = SE3_Generator_KITTI.apply
-
-class OdometryNet(nn.Module):
-    
-    def __init__(self):
-        super(OdometryNet, self).__init__()
-        self.img_width = 608
-        self.img_height = 160
-
-        conv_channels = [16, 32, 64, 128, 256, 256]
-        self.conv1 = conv_relu(6,                conv_channels[0], kernel_size=7, padding=3, stride=2)
-        self.conv2 = conv_relu(conv_channels[0], conv_channels[1], kernel_size=5, padding=2, stride=2)
-        self.conv3 = conv_relu(conv_channels[1], conv_channels[2])
-        self.conv4 = conv_relu(conv_channels[2], conv_channels[3])
-        self.conv5 = conv_relu(conv_channels[3], conv_channels[4])
-        self.conv6 = conv_relu(conv_channels[4], conv_channels[5])
-
-        self.fc1 = fc_relu(conv_channels[5] * 3 * 10, 512)
-        self.fc2 = fc_relu(512,              512)
-
-        self.fc_pose = nn.Linear(512, 6)
-
-    def forward(self, x):
-        assert (x.size(1) == 6 and x.size(2) == 160 and x.size(3) == 608), \
-            print("input format is invalid.")
-
-        out_conv1 = self.conv1(x)
-        out_conv2 = self.conv2(out_conv1)
-        out_conv3 = self.conv3(out_conv2)
-        out_conv4 = self.conv4(out_conv3)
-        out_conv5 = self.conv5(out_conv4)
-        out_conv6 = self.conv6(out_conv5)
-
-        in_fc1 = out_conv6.view(out_conv6.size(0), -1)
-        out_fc1 = self.fc1(in_fc1)
-        out_fc2 = self.fc2(out_fc1)
-        temporal_pose = self.fc_pose(out_fc2)
-        temporal_pose = temporal_pose.view(temporal_pose.size(0), temporal_pose.size(1), 1, -1)
-        se3 = generate_se3(temporal_pose)
-        return se3
-
-    def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-                xavier_uniform_(m.weight.data)
-                if m.bias is not None:
-                    zeros_(m.bias)
-
-class DepthNet(nn.Module):
-
-    def __init__(self):
-        super(DepthNet, self).__init__()
-        self.img_width = 608
-        self.img_height = 160
-
-        self.conv_1 = conv_bn_relu(3, 64, kernel_size=7, padding=3, stride=2)
-        self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2)
-
-        # bottom: pool1
-        self.conv_stage0_block0_proj_shortcut = conv_bn(64, 128, kernel_size=1, padding=0, stride=1)
-
-        # bottom: pool1
-        self.conv_stage0_block0_branch2a = conv_bn_relu(64, 32, kernel_size=1, padding=0, stride=1)
-        self.conv_stage0_block0_branch2b = conv_bn_relu(32, 32, kernel_size=3, padding=1, stride=1)
-        self.conv_stage0_block0_branch2c = conv_bn(32, 128, kernel_size=1, padding=0, stride=1)
-
-        self.eltwise_stage0_block0 = nn.ReLU(inplace=True)
-
-    def forward(self, x):
-        conv_1 = self.conv_1(x)
-        pool1 = self.pool1(conv_1)
-
-        conv_stage0_block0_proj_shortcut = self.conv_stage0_block0_proj_shortcut(pool1)
-
-        conv_stage0_block0_branch2a = self.conv_stage0_block0_branch2a(pool1)
-        conv_stage0_block0_branch2b = self.conv_stage0_block0_branch2b(conv_stage0_block0_branch2a)
-        conv_stage0_block0_branch2c = self.conv_stage0_block0_branch2b(conv_stage0_block0_branch2b)
-
-        eltwise_stage0_block0 = self.eltwise_stage0_block0(conv_stage0_block0_proj_shortcut + conv_stage0_block0_branch2c)
-
-        pass
