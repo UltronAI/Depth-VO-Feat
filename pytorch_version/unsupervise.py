@@ -10,8 +10,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-#from fixmodel import FixOdometryNet, FixDepthNet
-from model import OdometryNet, DepthNet
+from fixmodel import FixOdometryNet
+from model import DepthNet
 import cv2, os
 import numpy as np
 from path import Path
@@ -22,7 +22,7 @@ import argparse
 import pose_transforms
 from dataset import pose_framework_KITTI
 from un_dataset import dataset
-# from se3_generate import *
+from se3_generate import *
 from inverse_warp import inverse_warp
 
 # hyper-parameters
@@ -65,6 +65,7 @@ best_val_loss = 99999
 
 def train(odometry_net, depth_net, train_loader, epoch, optimizer):
     global device
+    odometry_net.set_fix_method(nfp.FIX_AUTO)
     odometry_net.train()
     depth_net.train()
     total_loss = 0
@@ -84,7 +85,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         # norm_img_R2 = 0.003 * img_R2
 
         inv_depth_img_R2 = depth_net(img_R2)
-        T_2to1 = odometry_net(img_R)
+        T_2to1, _ = odometry_net(img_R)
         T_2to1 = T_2to1.view(T_2to1.size(0), -1)
         T_R2L = T_R2L.view(T_R2L.size(0), -1)
 
@@ -111,7 +112,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
-        loss = warp_error_LR + warp_error_R12 + 0.01 * smooth_error
+        loss = 0.1 * warp_error_LR + 0.1 * warp_error_R12 + 0.001 * smooth_error
 
         total_loss += loss.item()
         optimizer.zero_grad()
@@ -122,7 +123,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
 
 @torch.no_grad()
-def validate(model, val_loader, epoch, output_dir, use_float=False):
+def validate(model, depth_net, val_loader, epoch, output_dir, use_float=False):
     global device
     global best_val_loss
     if use_float:
@@ -134,6 +135,7 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         output, _ = model(data)
+        output = generate_se3(output)
         output = output.view(-1, 4, 4).type(torch.FloatTensor).to(device)
         val_loss += F.l1_loss(output, target).item()# sum up batch loss
 
@@ -145,9 +147,11 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     if use_float:
         return
     if is_best and args.gpu_id in range(2):
-        torch.save(model.state_dict(), output_dir/"best_checkpoint.pth.tar")
+        torch.save(model.state_dict(), output_dir/"best_vo_checkpoint.pth.tar")
+        torch.save(depth_net.state_dict(), output_dir/"best_depth_checkpoint.pth.tar")
     elif is_best:
-        torch.save(model.module.state_dict(), output_dir/"best_checkpoint.pth.tar")
+        torch.save(model.module.state_dict(), output_dir/"best_vo_checkpoint.pth.tar")
+        torch.save(depth_net.module.state_dict(), output_dir/"best_depth_checkpoint.pth.tar")
 
 def smooth_loss(pred_map, scale_factor=1):
     def gradient(pred):
@@ -201,18 +205,18 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    #vo_input_fix, vo_output_fix = True, True
+    vo_input_fix, vo_output_fix = True, False
     #vo_conv_weight_fix = [False, False, False, False, False, False]
-    #vo_conv_weight_fix = [True] * 6
-    #vo_fc_weight_fix = [True, True, True]
+    vo_conv_weight_fix = [True] * 6
+    vo_fc_weight_fix = [False, False, False]
     #vo_conv_output_fix = [False, False, False, False, False, False]
-    #vo_conv_output_fix = [True] * 6
-    #vo_fc_output_fix = [True, True, True]
-    #odometry_net = FixOdometryNet(bit_width=BITWIDTH, input_fix=vo_input_fix, output_fix=vo_output_fix,
-    #    conv_weight_fix=vo_conv_weight_fix, fc_weight_fix=vo_fc_weight_fix,
-    #    conv_output_fix=vo_conv_output_fix, fc_output_fix=vo_fc_output_fix
-    #).to(device)
-    odometry_net = OdometryNet().to(device)
+    vo_conv_output_fix = [True] * 6
+    vo_fc_output_fix = [False, False, False]
+    odometry_net = FixOdometryNet(bit_width=BITWIDTH, input_fix=vo_input_fix, output_fix=vo_output_fix,
+        conv_weight_fix=vo_conv_weight_fix, fc_weight_fix=vo_fc_weight_fix,
+        conv_output_fix=vo_conv_output_fix, fc_output_fix=vo_fc_output_fix
+    ).to(device)
+#    odometry_net = OdometryNet().to(device)
     depth_net = DepthNet().to(device)
 
     # init weights of model
@@ -243,12 +247,12 @@ def main():
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     optimizer = optim.Adam(optim_params, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
-    #validate(odometry_net, val_loader, 0, output_dir, True)
+    validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
     print("=> training & validating")
-    #validate(odometry_net, val_loader, 0, output_dir)
+    validate(odometry_net, depth_net, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
         train(odometry_net, depth_net, train_loader, epoch, optimizer)
-        #validate(odometry_net, val_loader, epoch, output_dir)
+        validate(odometry_net, depth_net, val_loader, epoch, output_dir)
 
     #odometry_net.print_fix_configs()
 
