@@ -23,8 +23,8 @@ import argparse
 import pose_transforms
 from dataset import pose_framework_KITTI
 from un_dataset import dataset
-from se3_generate import *
-from inverse_warp import inverse_warp
+# from se3_generate import *
+from loss_functions import photometric_reconstruction_loss, smooth_loss
 
 # hyper-parameters
 BITWIDTH = 8
@@ -94,9 +94,9 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         # SE3 = generate_se3(T)
         # inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = torch.pow(torch.tensor(0.000001).to(device) + inv_depth_img_R2, -1).squeeze(1)
-        warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
-        warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
+        depth = torch.pow(torch.tensor(0.00001).to(device) + inv_depth_img_R2, -1).squeeze(1)
+        # warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
+        # warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
 
         # pts3D = geo_transform(depth, SE3, K)
         # proj_coords = pin_hole_project(pts3D, K)
@@ -108,12 +108,16 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         # warp_Itgt_LR = warp_Itgt[:10, :, :, :]
         # warp_Itgt_R12 = warp_Itgt[10:, :, :, :]
 
-        warp_error_LR  = torch.log(F.mse_loss(warp_Itgt_LR, img_R2) + 1)
-        warp_error_R12 = torch.log(F.mse_loss(warp_Itgt_R12, img_R2) + 1)
-
+        # warp_error_LR  = torch.log(F.mse_loss(warp_Itgt_LR, img_R2) + 1)
+        # warp_error_R12 = torch.log(F.mse_loss(warp_Itgt_R12, img_R2) + 1)
+        reconstruction_error = photometric_reconstruction_loss(img_R2, img_R1, img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
-        loss = warp_error_LR + warp_error_R12 + 0.1 * smooth_error
+        loss = reconstruction_error + 0.1 * smooth_error
+
+        print(reconstruction_error.item())
+        print(smooth_error.item())
+        exit(0)
 
         total_loss += loss.item()
         optimizer.zero_grad()
@@ -153,26 +157,6 @@ def validate(model, depth_net, val_loader, epoch, output_dir, use_float=False):
     elif is_best:
         torch.save(model.module.state_dict(), output_dir/"best_vo_checkpoint.pth.tar")
         torch.save(depth_net.module.state_dict(), output_dir/"best_depth_checkpoint.pth.tar")
-
-def smooth_loss(pred_map, scale_factor=1):
-    def gradient(pred):
-        D_dy = pred[:, :, 1:] - pred[:, :, :-1]
-        D_dx = pred[:, :, :, 1:] - pred[:, :, :, :-1]
-        return D_dx, D_dy
-
-    if type(pred_map) not in [tuple, list]:
-        pred_map = [pred_map]
-
-    loss = 0
-    weight = 1.
-
-    for scaled_map in pred_map:
-        dx, dy = gradient(scaled_map)
-        dx2, dxdy = gradient(dx)
-        dydx, dy2 = gradient(dy)
-        loss += (dx2.abs().mean() + dxdy.abs().mean() + dydx.abs().mean() + dy2.abs().mean())*weight
-        weight /= scale_factor  # don't ask me why it works better
-    return loss
 
 
 def main():
