@@ -158,13 +158,13 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    input_fix, output_fix = True, True
+    input_fix, output_fix = True, False
     #conv_weight_fix = [False, False, False, False, False, False]
     conv_weight_fix = [True] * 6
-    fc_weight_fix = [True, True, True]
+    fc_weight_fix = [True, True, False]
     #conv_output_fix = [False, False, False, False, False, False]
     conv_output_fix = [True] * 6
-    fc_output_fix = [True, True, True]
+    fc_output_fix = [True, True, False]
     model = FixOdometryNet(bit_width=BITWIDTH, input_fix=input_fix, output_fix=output_fix,
         conv_weight_fix=conv_weight_fix, fc_weight_fix=fc_weight_fix,
         conv_output_fix=conv_output_fix, fc_output_fix=fc_output_fix

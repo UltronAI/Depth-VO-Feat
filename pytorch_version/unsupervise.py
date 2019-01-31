@@ -12,6 +12,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from fixmodel import FixOdometryNet
 from model import DepthNet
+from DispNetS import DispNetS
 import cv2, os
 import numpy as np
 from path import Path
@@ -93,7 +94,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         # SE3 = generate_se3(T)
         # inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = torch.pow(torch.tensor(0.0001) + inv_depth_img_R2, -1).squeeze(1)
+        depth = torch.pow(torch.tensor(0.000001).to(device) + inv_depth_img_R2, -1).squeeze(1)
         warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
         warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
 
@@ -107,12 +108,12 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         # warp_Itgt_LR = warp_Itgt[:10, :, :, :]
         # warp_Itgt_R12 = warp_Itgt[10:, :, :, :]
 
-        warp_error_LR  = F.l1_loss(warp_Itgt_LR, img_R2)
-        warp_error_R12 = F.l1_loss(warp_Itgt_R12, img_R2)
+        warp_error_LR  = torch.log(F.mse_loss(warp_Itgt_LR, img_R2) + 1)
+        warp_error_R12 = torch.log(F.mse_loss(warp_Itgt_R12, img_R2) + 1)
 
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
-        loss = 0.1 * warp_error_LR + 0.1 * warp_error_R12 + 0.001 * smooth_error
+        loss = warp_error_LR + warp_error_R12 + 0.1 * smooth_error
 
         total_loss += loss.item()
         optimizer.zero_grad()
@@ -217,7 +218,8 @@ def main():
         conv_output_fix=vo_conv_output_fix, fc_output_fix=vo_fc_output_fix
     ).to(device)
 #    odometry_net = OdometryNet().to(device)
-    depth_net = DepthNet().to(device)
+    #depth_net = DepthNet().to(device)
+    depth_net = DispNetS().to(device)
 
     # init weights of model
     if args.odometry is None:
@@ -229,7 +231,7 @@ def main():
         depth_net.init_weights()
     elif args.depth:
         weights = torch.load(args.depth)
-        depth_net.load_state_dict(weights)
+        depth_net.load_state_dict(weights['state_dict'])
 
     cudnn.benchmark = True
     if args.cuda and args.gpu_id in range(2):
@@ -247,7 +249,7 @@ def main():
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     optimizer = optim.Adam(optim_params, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
-    validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
+    #validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
     print("=> training & validating")
     validate(odometry_net, depth_net, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
