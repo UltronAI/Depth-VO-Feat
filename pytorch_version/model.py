@@ -166,8 +166,8 @@ class OdometryNet(nn.Module):
         out_fc2 = self.fc2(out_fc1)
         temporal_pose = self.fc_pose(out_fc2)
         temporal_pose = temporal_pose.view(temporal_pose.size(0), temporal_pose.size(1), 1, -1)
-        se3 = generate_se3(temporal_pose)
-        return se3
+        #se3 = generate_se3(temporal_pose)
+        return temporal_pose
 
     def init_weights(self):
         for m in self.modules():
@@ -184,7 +184,7 @@ class DepthNet(nn.Module):
         self.img_height = 160
 
         self.conv_1 = conv_bn_relu(3, 64, kernel_size=7, padding=3, stride=2)
-        self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2)
+        self.pool1 = nn.MaxPool2d(kernel_size=3, padding=1, stride=2)
 
         # bottom: pool1
         self.conv_stage0_block0_proj_shortcut = conv_bn(64, 128, kernel_size=1, padding=0, stride=1)
@@ -302,23 +302,23 @@ class DepthNet(nn.Module):
         self.score_fr = nn.Conv2d(1024, 1, kernel_size=1, padding=0, stride=1)
 
         # upscore_pool5
-        self.upscore_pool5 = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, group=1)
+        self.upscore_pool5 = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, groups=1)
         self.score_pool4 = nn.Conv2d(512, 1, kernel_size=1, padding=0, stride=1)
 
         # upscore_pool4
-        self.upscore_pool4 = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, group=1)
+        self.upscore_pool4 = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, groups=1)
         self.score_pool3 = nn.Conv2d(256, 1, kernel_size=1, padding=0, stride=1)
 
         # upscore_pool3
-        self.upscore_pool3 = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, group=1)
+        self.upscore_pool3 = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, groups=1)
         self.score_pool2 = nn.Conv2d(128, 1, kernel_size=1, padding=0, stride=1)
 
         # upscore_pool2
-        self.upscore_pool2 = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, group=1)
+        self.upscore_pool2 = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, groups=1)
         self.score_pool1 = nn.Conv2d(64, 1, kernel_size=1, padding=0, stride=1)
 
         # upscore_all
-        self.upscore_all = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, group=1)
+        self.upscore_all = nn.ConvTranspose2d(1, 1, kernel_size=4, padding=1, stride=2, groups=1)
         
         # inv_depth
         self.inv_depth = nn.ReLU(inplace=True)
@@ -332,19 +332,19 @@ class DepthNet(nn.Module):
 
         conv_stage0_block0_branch2a = self.conv_stage0_block0_branch2a(pool1)
         conv_stage0_block0_branch2b = self.conv_stage0_block0_branch2b(conv_stage0_block0_branch2a)
-        conv_stage0_block0_branch2c = self.conv_stage0_block0_branch2b(conv_stage0_block0_branch2b)
+        conv_stage0_block0_branch2c = self.conv_stage0_block0_branch2c(conv_stage0_block0_branch2b)
 
         eltwise_stage0_block0 = self.eltwise_stage0_block0(conv_stage0_block0_proj_shortcut + conv_stage0_block0_branch2c)
 
         conv_stage0_block1_branch2a = self.conv_stage0_block1_branch2a(eltwise_stage0_block0)
         conv_stage0_block1_branch2b = self.conv_stage0_block1_branch2b(conv_stage0_block1_branch2a)
-        conv_stage0_block1_branch2c = self.conv_stage0_block1_branch2b(conv_stage0_block1_branch2b)
+        conv_stage0_block1_branch2c = self.conv_stage0_block1_branch2c(conv_stage0_block1_branch2b)
 
         eltwise_stage0_block1 = self.eltwise_stage0_block1(eltwise_stage0_block0 + conv_stage0_block1_branch2c)
 
         conv_stage0_block2_branch2a = self.conv_stage0_block2_branch2a(eltwise_stage0_block1)
         conv_stage0_block2_branch2b = self.conv_stage0_block2_branch2b(conv_stage0_block2_branch2a)
-        conv_stage0_block2_branch2c = self.conv_stage0_block2_branch2b(conv_stage0_block2_branch2b)
+        conv_stage0_block2_branch2c = self.conv_stage0_block2_branch2c(conv_stage0_block2_branch2b)
 
         eltwise_stage0_block2 = self.eltwise_stage0_block2(eltwise_stage0_block1 + conv_stage0_block2_branch2c)
 
@@ -353,25 +353,25 @@ class DepthNet(nn.Module):
 
         conv_stage1_block0_branch2a = self.conv_stage1_block0_branch2a(eltwise_stage0_block2)
         conv_stage1_block0_branch2b = self.conv_stage1_block0_branch2b(conv_stage1_block0_branch2a)
-        conv_stage1_block0_branch2c = self.conv_stage1_block0_branch2b(conv_stage1_block0_branch2b)
+        conv_stage1_block0_branch2c = self.conv_stage1_block0_branch2c(conv_stage1_block0_branch2b)
 
         eltwise_stage1_block0 = self.eltwise_stage1_block0(conv_stage1_block0_proj_shortcut + conv_stage1_block0_branch2c)
 
         conv_stage1_block1_branch2a = self.conv_stage1_block1_branch2a(eltwise_stage1_block0)
         conv_stage1_block1_branch2b = self.conv_stage1_block1_branch2b(conv_stage1_block1_branch2a)
-        conv_stage1_block1_branch2c = self.conv_stage1_block1_branch2b(conv_stage1_block1_branch2b)
+        conv_stage1_block1_branch2c = self.conv_stage1_block1_branch2c(conv_stage1_block1_branch2b)
 
         eltwise_stage1_block1 = self.eltwise_stage1_block1(eltwise_stage1_block0 + conv_stage1_block1_branch2c)
 
         conv_stage1_block2_branch2a = self.conv_stage1_block2_branch2a(eltwise_stage1_block1)
         conv_stage1_block2_branch2b = self.conv_stage1_block2_branch2b(conv_stage1_block2_branch2a)
-        conv_stage1_block2_branch2c = self.conv_stage1_block2_branch2b(conv_stage1_block2_branch2b)
+        conv_stage1_block2_branch2c = self.conv_stage1_block2_branch2c(conv_stage1_block2_branch2b)
 
         eltwise_stage1_block2 = self.eltwise_stage1_block2(eltwise_stage1_block1 + conv_stage1_block2_branch2c)
 
         conv_stage1_block3_branch2a = self.conv_stage1_block3_branch2a(eltwise_stage1_block2)
         conv_stage1_block3_branch2b = self.conv_stage1_block3_branch2b(conv_stage1_block3_branch2a)
-        conv_stage1_block3_branch2c = self.conv_stage1_block3_branch2b(conv_stage1_block3_branch2b)
+        conv_stage1_block3_branch2c = self.conv_stage1_block3_branch2c(conv_stage1_block3_branch2b)
 
         eltwise_stage1_block3 = self.eltwise_stage1_block3(eltwise_stage1_block2 + conv_stage1_block3_branch2c)
 
@@ -380,37 +380,37 @@ class DepthNet(nn.Module):
 
         conv_stage2_block0_branch2a = self.conv_stage2_block0_branch2a(eltwise_stage1_block3)
         conv_stage2_block0_branch2b = self.conv_stage2_block0_branch2b(conv_stage2_block0_branch2a)
-        conv_stage2_block0_branch2c = self.conv_stage2_block0_branch2b(conv_stage2_block0_branch2b)
+        conv_stage2_block0_branch2c = self.conv_stage2_block0_branch2c(conv_stage2_block0_branch2b)
 
         eltwise_stage2_block0 = self.eltwise_stage2_block0(conv_stage2_block0_proj_shortcut + conv_stage2_block0_branch2c)
 
         conv_stage2_block1_branch2a = self.conv_stage2_block1_branch2a(eltwise_stage2_block0)
         conv_stage2_block1_branch2b = self.conv_stage2_block1_branch2b(conv_stage2_block1_branch2a)
-        conv_stage2_block1_branch2c = self.conv_stage2_block1_branch2b(conv_stage2_block1_branch2b)
+        conv_stage2_block1_branch2c = self.conv_stage2_block1_branch2c(conv_stage2_block1_branch2b)
 
         eltwise_stage2_block1 = self.eltwise_stage2_block1(eltwise_stage2_block0 + conv_stage2_block1_branch2c)
 
         conv_stage2_block2_branch2a = self.conv_stage2_block2_branch2a(eltwise_stage2_block1)
         conv_stage2_block2_branch2b = self.conv_stage2_block2_branch2b(conv_stage2_block2_branch2a)
-        conv_stage2_block2_branch2c = self.conv_stage2_block2_branch2b(conv_stage2_block2_branch2b)
+        conv_stage2_block2_branch2c = self.conv_stage2_block2_branch2c(conv_stage2_block2_branch2b)
 
         eltwise_stage2_block2 = self.eltwise_stage2_block2(eltwise_stage2_block1 + conv_stage2_block2_branch2c)
 
         conv_stage2_block3_branch2a = self.conv_stage2_block3_branch2a(eltwise_stage2_block2)
         conv_stage2_block3_branch2b = self.conv_stage2_block3_branch2b(conv_stage2_block3_branch2a)
-        conv_stage2_block3_branch2c = self.conv_stage2_block3_branch2b(conv_stage2_block3_branch2b)
+        conv_stage2_block3_branch2c = self.conv_stage2_block3_branch2c(conv_stage2_block3_branch2b)
 
         eltwise_stage2_block3 = self.eltwise_stage2_block3(eltwise_stage2_block2 + conv_stage2_block3_branch2c)
 
         conv_stage2_block4_branch2a = self.conv_stage2_block4_branch2a(eltwise_stage2_block3)
         conv_stage2_block4_branch2b = self.conv_stage2_block4_branch2b(conv_stage2_block4_branch2a)
-        conv_stage2_block4_branch2c = self.conv_stage2_block4_branch2b(conv_stage2_block4_branch2b)
+        conv_stage2_block4_branch2c = self.conv_stage2_block4_branch2c(conv_stage2_block4_branch2b)
 
         eltwise_stage2_block4 = self.eltwise_stage2_block4(eltwise_stage2_block3 + conv_stage2_block4_branch2c)
 
         conv_stage2_block5_branch2a = self.conv_stage2_block5_branch2a(eltwise_stage2_block4)
         conv_stage2_block5_branch2b = self.conv_stage2_block5_branch2b(conv_stage2_block5_branch2a)
-        conv_stage2_block5_branch2c = self.conv_stage2_block5_branch2b(conv_stage2_block5_branch2b)
+        conv_stage2_block5_branch2c = self.conv_stage2_block5_branch2c(conv_stage2_block5_branch2b)
 
         eltwise_stage2_block5 = self.eltwise_stage2_block5(eltwise_stage2_block4 + conv_stage2_block5_branch2c)
 
@@ -419,19 +419,19 @@ class DepthNet(nn.Module):
 
         conv_stage3_block0_branch2a = self.conv_stage3_block0_branch2a(eltwise_stage2_block5)
         conv_stage3_block0_branch2b = self.conv_stage3_block0_branch2b(conv_stage3_block0_branch2a)
-        conv_stage3_block0_branch2c = self.conv_stage3_block0_branch2b(conv_stage3_block0_branch2b)
+        conv_stage3_block0_branch2c = self.conv_stage3_block0_branch2c(conv_stage3_block0_branch2b)
 
         eltwise_stage3_block0 = self.eltwise_stage3_block0(conv_stage3_block0_proj_shortcut + conv_stage3_block0_branch2c)
 
         conv_stage3_block1_branch2a = self.conv_stage3_block1_branch2a(eltwise_stage3_block0)
         conv_stage3_block1_branch2b = self.conv_stage3_block1_branch2b(conv_stage3_block1_branch2a)
-        conv_stage3_block1_branch2c = self.conv_stage3_block1_branch2b(conv_stage3_block1_branch2b)
+        conv_stage3_block1_branch2c = self.conv_stage3_block1_branch2c(conv_stage3_block1_branch2b)
 
         eltwise_stage3_block1 = self.eltwise_stage3_block1(eltwise_stage3_block0 + conv_stage3_block1_branch2c)
 
         conv_stage3_block2_branch2a = self.conv_stage3_block2_branch2a(eltwise_stage3_block1)
         conv_stage3_block2_branch2b = self.conv_stage3_block2_branch2b(conv_stage3_block2_branch2a)
-        conv_stage3_block2_branch2c = self.conv_stage3_block2_branch2b(conv_stage3_block2_branch2b)
+        conv_stage3_block2_branch2c = self.conv_stage3_block2_branch2c(conv_stage3_block2_branch2b)
 
         eltwise_stage3_block2 = self.eltwise_stage3_block2(eltwise_stage3_block1 + conv_stage3_block2_branch2c)
 
@@ -465,3 +465,10 @@ class DepthNet(nn.Module):
         inv_depth = self.inv_depth(0.01 * upscore_all)
 
         return inv_depth
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+                xavier_uniform_(m.weight.data)
+                if m.bias is not None:
+                    zeros_(m.bias)

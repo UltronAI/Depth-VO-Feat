@@ -43,8 +43,20 @@ class dataset(data.Dataset):
         img_r1, img_l2, img_r2 = imgs[0], imgs[1], imgs[2]
         intrinsics = np.genfromtxt(sample['intrinsics']).astype(np.float32).reshape((3, 3))
         T_R2L = np.load(sample['T_R2L']).astype(np.float32)
+        #print(img_r1.shape)
+        #print(img_r2.shape)
+        #print(intrinsics.shape)
+        #print(T_R2L.shape)
+        #try:
+        #    self.transform(img_r1)
+        #except:
+        #    print('1, {}'.format(img_r1.shape))
+        #    print('2, {}'.format(np.transpose(img_r1, (2,0,1)).shape))
+        #    exit(0)        
         if self.transform is not None:
-            intrinsics = self.transform(intrinsics).numpy()
+            #intrinsics = self.transform(intrinsics).numpy()
+            print(img_r1.shape)
+            exit(0)
             img_r1 = self.transform(img_r1).numpy()
             img_r1 -= 101
             img_r1 -= 117
@@ -75,7 +87,7 @@ class dataset(data.Dataset):
             torch.from_numpy(img_r2).type(torch.FloatTensor), \
             torch.from_numpy(intrinsics).type(torch.FloatTensor), \
             torch.from_numpy(np.linalg.inv(intrinsics)).type(torch.FloatTensor), \
-            torch.from_numpy(sample['T_R2L']).type(torch.FloatTensor)
+            torch.from_numpy(T_R2L).type(torch.FloatTensor)
 
     def __len__(self):
         return len(self.samples)

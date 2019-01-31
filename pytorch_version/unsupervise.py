@@ -10,7 +10,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-from fixmodel import FixOdometryNet, FixDepthNet
+#from fixmodel import FixOdometryNet, FixDepthNet
+from model import OdometryNet, DepthNet
 import cv2, os
 import numpy as np
 from path import Path
@@ -44,7 +45,7 @@ parser.add_argument('--seed', type=int, default=2019, metavar='S',
 parser.add_argument('-b', '--batch-size', default=64, type=int)
 
 parser.add_argument('-g', '--gpu-id', type=int, metavar='N', default=-1)
-parser.add_argument("--dataset-dir", default='.', type=str, help="Dataset directory")
+parser.add_argument("--dataset-dir", default='/home/share/kitti_odometry/dataset/', type=str, help="Dataset directory")
 parser.add_argument("--train-sequences", default=['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'], 
                     type=str, nargs='*', help="sequences to train")
 parser.add_argument("--test-sequences", default=['00'], type=str, nargs='*', help="sequences to test")
@@ -67,8 +68,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
     odometry_net.train()
     depth_net.train()
     total_loss = 0
-    for batch_idx, (img_R1, img_L2, img_R2, intrinsics, inv_intrinsics, T_R2L) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch,
-            leave=False, ncols=80):
+    for batch_idx, (img_R1, img_L2, img_R2, intrinsics, inv_intrinsics, T_R2L) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch, leave=False, ncols=80):
         img_R1 = img_R1.type(torch.FloatTensor).to(device)
         img_R2 = img_R2.type(torch.FloatTensor).to(device)
         img_L2 = img_L2.type(torch.FloatTensor).to(device)
@@ -85,12 +85,14 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         inv_depth_img_R2 = depth_net(img_R2)
         T_2to1 = odometry_net(img_R)
+        T_2to1 = T_2to1.view(T_2to1.size(0), -1)
+        T_R2L = T_R2L.view(T_R2L.size(0), -1)
+
         # T = torch.cat((T_R2L, T_2to1), div=0)
 
         # SE3 = generate_se3(T)
         # inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = torch.pow(0.0001 + inv_depth_img_R2, -1)
-
+        depth = torch.pow(torch.tensor(0.0001) + inv_depth_img_R2, -1).squeeze(1)
         warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
         warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
 
@@ -107,11 +109,11 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         warp_error_LR  = F.l1_loss(warp_Itgt_LR, img_R2)
         warp_error_R12 = F.l1_loss(warp_Itgt_R12, img_R2)
 
-        smooth_error = smooth_loss(depth)
+        smooth_error = smooth_loss(depth.unsqueeze(1))
 
-        loss = warp_error_LR + warp_error_R12 + smooth_error
+        loss = warp_error_LR + warp_error_R12 + 0.01 * smooth_error
+
         total_loss += loss.item()
-
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -184,7 +186,7 @@ def main():
     print("=> fetching sequences in '{}'".format(args.dataset_dir))
     dataset_dir = Path(args.dataset_dir)
     print("=> preparing train set") 
-    train_set = dataset(transform=train_transform)
+    train_set = dataset()#transform=train_transform)
     print("=> preparing val set")
     val_set = pose_framework_KITTI(
         dataset_dir, args.test_sequences, 
@@ -199,19 +201,19 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    vo_input_fix, vo_output_fix = True, True
-    #conv_weight_fix = [False, False, False, False, False, False]
-    vo_conv_weight_fix = [True] * 6
-    vo_fc_weight_fix = [True, True, True]
-    #conv_output_fix = [False, False, False, False, False, False]
-    vo_conv_output_fix = [True] * 6
-    vo_fc_output_fix = [True, True, True]
-    odometry_net = FixOdometryNet(bit_width=BITWIDTH, input_fix=vo_input_fix, output_fix=vo_output_fix,
-        conv_weight_fix=vo_conv_weight_fix, fc_weight_fix=vo_fc_weight_fix,
-        conv_output_fix=vo_conv_output_fix, fc_output_fix=vo_fc_output_fix
-    ).to(device)
-
-    depth_net = FixDepthNet(bit_width=BITWIDTH).to(device)
+    #vo_input_fix, vo_output_fix = True, True
+    #vo_conv_weight_fix = [False, False, False, False, False, False]
+    #vo_conv_weight_fix = [True] * 6
+    #vo_fc_weight_fix = [True, True, True]
+    #vo_conv_output_fix = [False, False, False, False, False, False]
+    #vo_conv_output_fix = [True] * 6
+    #vo_fc_output_fix = [True, True, True]
+    #odometry_net = FixOdometryNet(bit_width=BITWIDTH, input_fix=vo_input_fix, output_fix=vo_output_fix,
+    #    conv_weight_fix=vo_conv_weight_fix, fc_weight_fix=vo_fc_weight_fix,
+    #    conv_output_fix=vo_conv_output_fix, fc_output_fix=vo_fc_output_fix
+    #).to(device)
+    odometry_net = OdometryNet().to(device)
+    depth_net = DepthNet().to(device)
 
     # init weights of model
     if args.odometry is None:
@@ -241,14 +243,14 @@ def main():
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     optimizer = optim.Adam(optim_params, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
-    validate(odometry_net, val_loader, 0, output_dir, True)
+    #validate(odometry_net, val_loader, 0, output_dir, True)
     print("=> training & validating")
-    validate(odometry_net, val_loader, 0, output_dir)
+    #validate(odometry_net, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
         train(odometry_net, depth_net, train_loader, epoch, optimizer)
-        validate(odometry_net, val_loader, epoch, output_dir)
+        #validate(odometry_net, val_loader, epoch, output_dir)
 
-    odometry_net.print_fix_configs()
+    #odometry_net.print_fix_configs()
 
 if __name__ == '__main__':
     main()
