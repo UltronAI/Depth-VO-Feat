@@ -15,6 +15,7 @@ import nics_fix_pt as nfp
 import argparse
 import pose_transforms
 from load_00 import pose_framework_KITTI
+from se3_generate import *
 
 # hyper-parameters
 BITWIDTH = 8
@@ -93,9 +94,10 @@ def inference(model, val_loader, output_dir):
     for _, (data, target) in enumerate(val_loader):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         output, _ = model(data)
+        output = generate_se3(output)
         output = output.view(-1, 4, 4).cpu().numpy()[0]
 
-        save_result_poses(output, output_dir, 'pytorch_fix_pred.txt')
+        save_result_poses(output, output_dir, 'pytorch_fix_pred_3.txt')
         #save_result_poses(target.cpu().numpy()[0], output_dir, 'gt.txt')
 
 

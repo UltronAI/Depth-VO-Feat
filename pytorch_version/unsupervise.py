@@ -23,7 +23,7 @@ import argparse
 import pose_transforms
 from dataset import pose_framework_KITTI
 from un_dataset import dataset
-# from se3_generate import *
+from se3_generate import *
 from loss_functions import photometric_reconstruction_loss, smooth_loss
 
 # hyper-parameters
@@ -94,7 +94,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         # SE3 = generate_se3(T)
         # inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = torch.pow(torch.tensor(0.00001).to(device) + inv_depth_img_R2, -1).squeeze(1)
+        depth = torch.pow(1e-5 + inv_depth_img_R2, -1).squeeze(1)
         # warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
         # warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
 
@@ -113,11 +113,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         reconstruction_error = photometric_reconstruction_loss(img_R2, img_R1, img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
-        loss = reconstruction_error + 0.1 * smooth_error
-
-        print(reconstruction_error.item())
-        print(smooth_error.item())
-        exit(0)
+        loss = reconstruction_error + smooth_error
 
         total_loss += loss.item()
         optimizer.zero_grad()
@@ -190,12 +186,12 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    vo_input_fix, vo_output_fix = True, False
-    #vo_conv_weight_fix = [False, False, False, False, False, False]
-    vo_conv_weight_fix = [True] * 6
+    vo_input_fix, vo_output_fix = False, False
+    vo_conv_weight_fix = [False, False, False, False, False, False]
+    #vo_conv_weight_fix = [True] * 6
     vo_fc_weight_fix = [False, False, False]
-    #vo_conv_output_fix = [False, False, False, False, False, False]
-    vo_conv_output_fix = [True] * 6
+    vo_conv_output_fix = [False, False, False, False, False, False]
+    #vo_conv_output_fix = [True] * 6
     vo_fc_output_fix = [False, False, False]
     odometry_net = FixOdometryNet(bit_width=BITWIDTH, input_fix=vo_input_fix, output_fix=vo_output_fix,
         conv_weight_fix=vo_conv_weight_fix, fc_weight_fix=vo_fc_weight_fix,
@@ -233,9 +229,9 @@ def main():
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     optimizer = optim.Adam(optim_params, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
-    #validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
+    validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
     print("=> training & validating")
-    validate(odometry_net, depth_net, val_loader, 0, output_dir)
+    #validate(odometry_net, depth_net, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
         train(odometry_net, depth_net, train_loader, epoch, optimizer)
         validate(odometry_net, depth_net, val_loader, epoch, output_dir)

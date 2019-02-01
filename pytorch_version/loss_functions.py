@@ -10,13 +10,13 @@ def photometric_reconstruction_loss(img_R2, img_R1, img_L2, depth, T_2to1, T_R2L
 
     warped_R1 = inverse_warp(img_R1, depth, T_2to1, intrinsics, intrinsics_inv, rotation_mode, padding_mode)
     out_of_bound = 1 - (warped_R1 == 0).prod(1, keepdim=True).type_as(warped_R1)
-    diff_R1 = (img_R2, warped_R1) * out_of_bound
-    reconstruction_loss += diff_R1.abs().mean
+    diff_R1 = (img_R2 - warped_R1) * out_of_bound
+    reconstruction_loss += diff_R1.abs().mean()
 
     warped_L2 = inverse_warp(img_L2, depth, T_R2L, intrinsics, intrinsics_inv, rotation_mode, padding_mode)
     out_of_bound = 1 - (warped_L2 == 0).prod(1, keepdim=True).type_as(warped_L2)
-    diff_L2 = (img_R2, warped_L2) * out_of_bound
-    reconstruction_loss += diff_L2.abs().mean
+    diff_L2 = (img_R2 - warped_L2) * out_of_bound
+    reconstruction_loss += diff_L2.abs().mean()
 
     return reconstruction_loss
 

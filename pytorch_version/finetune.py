@@ -11,6 +11,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from fixmodel import FixOdometryNet
+from se3_generate import *
 import cv2, os
 import numpy as np
 from path import Path
@@ -69,6 +70,7 @@ def train(model, train_loader, epoch, optimizer):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         optimizer.zero_grad()
         output, _ = model(data)
+        output = generate_se3(output)
         output = output.view(-1, 4, 4).type(torch.FloatTensor).to(device)
         loss = criterion(output, target)
         total_loss += loss.item()
@@ -94,6 +96,7 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         output, _ = model(data)
+        output = generate_se3(output)
         output = output.view(-1, 4, 4).type(torch.FloatTensor).to(device)
         val_loss += F.l1_loss(output, target).item()# sum up batch loss
 
@@ -104,7 +107,7 @@ def validate(model, val_loader, epoch, output_dir, use_float=False):
     print('Test set: Average loss: {:.4f} [BEST:{}]'.format(val_loss, is_best if not use_float else 'N/A'))
     if use_float:
         return
-    if is_best and args.gpu_id in range(2):
+    if is_best and args.gpu_id in range(4):
         torch.save(model.state_dict(), output_dir/"best_checkpoint.pth.tar")
     elif is_best:
         torch.save(model.module.state_dict(), output_dir/"best_checkpoint.pth.tar")
@@ -118,9 +121,9 @@ class OdometryLoss(nn.modules.Module):
 
     def forward(self, pred, gt):
         batch_size = pred.size(0)
-        pred_ = torch.exp(torch.cat((pred[:, :, :3], pred[:, :, 3].view(-1, 4, 1)), 2))
-        gt_ = torch.exp(torch.cat((gt[:, :, :3], gt[:, :, 3].view(-1, 4, 1)), 2))
-        loss = torch.sqrt(F.mse_loss(pred_, gt_))
+        pred_ = torch.exp(torch.cat((5*pred[:, :, :3], pred[:, :, 3].view(-1, 4, 1)), 2))
+        gt_ = torch.exp(torch.cat((5*gt[:, :, :3], gt[:, :, 3].view(-1, 4, 1)), 2))
+        loss = torch.log(F.mse_loss(pred_, gt_) + 1)
         return loss 
 
 def main():
@@ -161,10 +164,10 @@ def main():
     input_fix, output_fix = True, False
     #conv_weight_fix = [False, False, False, False, False, False]
     conv_weight_fix = [True] * 6
-    fc_weight_fix = [True, True, False]
+    fc_weight_fix = [False, True, False]
     #conv_output_fix = [False, False, False, False, False, False]
     conv_output_fix = [True] * 6
-    fc_output_fix = [True, True, False]
+    fc_output_fix = [False, True, False]
     model = FixOdometryNet(bit_width=BITWIDTH, input_fix=input_fix, output_fix=output_fix,
         conv_weight_fix=conv_weight_fix, fc_weight_fix=fc_weight_fix,
         conv_output_fix=conv_output_fix, fc_output_fix=fc_output_fix
@@ -178,7 +181,7 @@ def main():
         model.load_state_dict(weights)
 
     cudnn.benchmark = True
-    if args.cuda and args.gpu_id in range(2):
+    if args.cuda and args.gpu_id in range(4):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     elif args.cuda:
         model = torch.nn.DataParallel(model)

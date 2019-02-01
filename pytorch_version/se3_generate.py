@@ -34,7 +34,7 @@ class SE3_Generator_KITTI(torch.autograd.Function):
                 R[i, 0] += uw_x[i, 0]
                 continue
             else:
-                c1 = np.sin(theta[i]) / theta
+                c1 = np.sin(theta[i]) / theta[i]
                 c2 = 2 * np.sin(theta[i]/2) ** 2 / theta[i] ** 2
                 c3 = ((theta[i] - np.sin(theta[i])) / theta[i] ** 3) ** 2
                 #print(R[i,0].shape)
