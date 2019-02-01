@@ -94,7 +94,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         # SE3 = generate_se3(T)
         # inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = torch.pow(1e-5 + inv_depth_img_R2, -1).squeeze(1)
+        depth = (1/inv_depth_img_R2).squeeze(1)
         # warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
         # warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
 
@@ -110,7 +110,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         # warp_error_LR  = torch.log(F.mse_loss(warp_Itgt_LR, img_R2) + 1)
         # warp_error_R12 = torch.log(F.mse_loss(warp_Itgt_R12, img_R2) + 1)
-        reconstruction_error = photometric_reconstruction_loss(img_R2, img_R1, img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
+        reconstruction_error = photometric_reconstruction_loss(0.004*img_R2, 0.004*img_R1, 0.004*img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
         loss = reconstruction_error + smooth_error
