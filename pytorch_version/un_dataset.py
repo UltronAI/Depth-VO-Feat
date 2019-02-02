@@ -26,14 +26,16 @@ class dataset(data.Dataset):
             line_split = lines[i].split()
             l1, l2, r1, r2, k, t = line_split[0], line_split[1], line_split[2], line_split[3], line_split[4], line_split[5]
             intrinsics = root + 'intrinsics/' + l1.split('/')[-4] + '_cam.txt'
-            t = root + 'train_T_R2L/' + t + '.npy'
+            raw_K = root + 'train_K/' + k + '.npy'
+            T = root + 'train_T_R2L/' + t + '.npy'
             self.samples.append({
                 'left_1': l1, 
                 'left_2': l2,
                 'right_1': r1,
                 'right_2': r2,
                 'intrinsics': intrinsics,
-                'T_R2L': t
+                'raw_K': raw_K,
+                'T_R2L': T
             })
 
     def __getitem__(self, index):
@@ -42,21 +44,10 @@ class dataset(data.Dataset):
         imgs = [imresize(img, (self.height, self.width)).astype(np.float32) for img in imgs]
         img_r1, img_l2, img_r2 = imgs[0], imgs[1], imgs[2]
         intrinsics = np.genfromtxt(sample['intrinsics']).astype(np.float32).reshape((3, 3))
+        raw_K = np.load(sample['raw_K']).astype(np.float32)
         T_R2L = np.load(sample['T_R2L']).astype(np.float32)
-        #print(img_r1.shape)
-        #print(img_r2.shape)
-        #print(intrinsics.shape)
-        #print(T_R2L.shape)
-        #try:
-        #    self.transform(img_r1)
-        #except:
-        #    print('1, {}'.format(img_r1.shape))
-        #    print('2, {}'.format(np.transpose(img_r1, (2,0,1)).shape))
-        #    exit(0)        
         if self.transform is not None:
             #intrinsics = self.transform(intrinsics).numpy()
-            print(img_r1.shape)
-            exit(0)
             img_r1 = self.transform(img_r1).numpy()
             img_r1 -= 101
             img_r1 -= 117
@@ -87,6 +78,7 @@ class dataset(data.Dataset):
             torch.from_numpy(img_r2).type(torch.FloatTensor), \
             torch.from_numpy(intrinsics).type(torch.FloatTensor), \
             torch.from_numpy(np.linalg.inv(intrinsics)).type(torch.FloatTensor), \
+            torch.from_numpy(raw_K).type(torch.FloatTensor)
             torch.from_numpy(T_R2L).type(torch.FloatTensor)
 
     def __len__(self):

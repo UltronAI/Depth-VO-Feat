@@ -1,5 +1,6 @@
 import torch
 import threading
+import time
 import numpy as np
 
 def geo_transform(depthmap, pose, cam_intrinsic):
@@ -49,6 +50,51 @@ def pin_hole_project(transformed_points, cam_intrinsic):
 
     return proj_coords
 
+lock = threading.Lock()
+
+class myThread (threading.Thread):
+    def __init__(self, img, proj_coords, warp_img, index):
+        threading.Thread.__init__(self)
+        self.img = img
+        self.proj_coords = proj_coords
+        self.warp_img = warp_img
+        self.index = index
+    def run(self):
+        # print "Starting " + self.name
+        lock.acquire()
+        inverse_warp_unit(self.img, self.proj_coords, self.warp_img, self.index)
+        lock.release()
+
+def inverse_warp_unit(img, proj_coords, warp_img, index):
+    num, channel, height, width = img.size()
+
+    x = index % width
+    y = (index / width) % height
+    n = index / width / height
+
+    xx = proj_coords[n, 0, y, x]
+    yy = proj_coords[n, 1, y, x]
+
+    x1 = torch.floor(xx)
+    x2 = x1 + 1
+    y1 = torch.floor(yy)
+    y2 = y1 + 1
+
+    wx2 = xx - torch.float(x1)
+    wx1 = float(x2) - xx
+    wy2 = yy - torch.float(y1)
+    wy1 = float(y2) - yy
+
+    for cc in range(channel):
+        if (x1 >= 0 and x1 <= width-1 and y1 >= 0 and y1 <= height-1):
+            warp_img[n, cc, y, x] += wx1 * wy1 * img[n, cc, y1, x1]
+        if (x1 >= 0 and x1 <= width-1 and y2 >= 0 and y2 <= height-1):
+            warp_img[n, cc, y, x] += wx1 * wy2 * img[n, cc, y2, x1]
+        if (x2 >= 0 and x2 <= width-1 and y1 >= 0 and y1 <= height-1):
+            warp_img[n, cc, y, x] += wx2 * wy1 * img[n, cc, y1, x2]
+        if (x2 >= 0 and x2 <= width-1 and y2 >= 0 and y2 <= height-1):
+            warp_img[n, cc, y, x] += wx2 * wy2 * img[n, cc, y2, x2]
+
 def inverse_warp(img, proj_coords):
     # bottom[0] --> Image (N,C,H,W)
     # bottom[1] --> projection coordinate (N,2,H,W)
@@ -59,20 +105,14 @@ def inverse_warp(img, proj_coords):
     width = img.size(3)
     warp_img = torch.from_numpy(np.zeros((num, channel, height, width)))
 
-    proj_xx = proj_coords[:, 0, :, :]
-    proj_yy = proj_coords[:, 1, :, :]
+    threads = []
+ 
+    for i in range(num * height * width):
+        thread_ = myThread(img, proj_coords, warp_img, i)
+        thread_.start()
+        threads.append(thread_)
 
-    proj_x1 = torch.floor(proj_xx)
-    proj_y1 = torch.floor(proj_yy)
-
-    proj_x2 = proj_x1 + torch.ones_like(proj_x1)
-    proj_y2 = proj_y1 + torch.ones_like(proj_y1)
-
-    proj_wx2 = proj_xx - proj_x1
-    proj_wx1 = proj_x2 - proj_xx
-    proj_wy2 = proj_yy - proj_y1
-    proj_wy1 = proj_y2 - proj_yy
-
-    
+    for t in threads:
+        t.join()
 
     return warp_img

@@ -24,7 +24,8 @@ import pose_transforms
 from dataset import pose_framework_KITTI
 from un_dataset import dataset
 from se3_generate import *
-from loss_functions import photometric_reconstruction_loss, smooth_loss
+from geo_transform import geo_transform, pin_hole_project, inverse_warp
+from loss_functions import smooth_loss
 
 # hyper-parameters
 BITWIDTH = 8
@@ -70,7 +71,8 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
     odometry_net.train()
     depth_net.train()
     total_loss = 0
-    reconstruction_total = 0
+    lr_total = 0
+    r12_total = 0
     smooth_total = 0
     for batch_idx, (img_R1, img_L2, img_R2, intrinsics, inv_intrinsics, raw_K, T_R2L) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch, leave=False, ncols=80):
         img_R1 = img_R1.type(torch.FloatTensor).to(device)
@@ -81,52 +83,59 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         raw_K = raw_K.type(torch.FloatTensor).to(device)
         T_R2L = T_R2L.type(torch.FloatTensor).to(device)
 
-        img_R = torch.cat((img_R2, img_R1), dim=1)
-        # K = torch.cat((raw_K, raw_K), dim=0)
+        batch_size = img_R1.size(0)
 
-        # norm_img_L2 = 0.004 * img_L2
-        # norm_img_R1 = 0.004 * img_R1
-        # norm_img_R2 = 0.003 * img_R2
+        img_R = torch.cat((img_R2, img_R1), dim=1)
+        K = torch.cat((raw_K, raw_K), dim=0)
+
+        norm_img_L2 = 0.004 * img_L2
+        norm_img_R1 = 0.004 * img_R1
+        norm_img_R2 = 0.003 * img_R2
 
         inv_depth_img_R2 = depth_net(img_R2)
         T_2to1, _ = odometry_net(img_R)
         T_2to1 = T_2to1.view(T_2to1.size(0), -1)
         T_R2L = T_R2L.view(T_R2L.size(0), -1)
 
-        # T = torch.cat((T_R2L, T_2to1), div=0)
+        T = torch.cat((T_R2L, T_2to1), div=0)
 
-        # SE3 = generate_se3(T)
-        # inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = (1/(inv_depth_img_R2+1e-12)).squeeze(1)
-        # warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
-        # warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
+        SE3 = generate_se3(T)
+        inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
+        depth = (1 / (inv_depth + 1e-12)).squeeze(1)
 
-        # pts3D = geo_transform(depth, SE3, K)
-        # proj_coords = pin_hole_project(pts3D, K)
+        pts3D = geo_transform(depth, SE3, K)
+        proj_coords = pin_hole_project(pts3D, K)
 
-        # Isrc = torch.cat((norm_img_L2, norm_img_R1), dim=0)
-        # warp_Itgt = inverse_warp(Isrc, proj_coords)
-        # warp_Itgt = inverse_warp(Isrc, depth, SE3, K)
+        Isrc = torch.cat((norm_img_L2, norm_img_R1), dim=0)
+        warp_Itgt = inverse_warp(Isrc, proj_coords)
 
-        # warp_Itgt_LR = warp_Itgt[:10, :, :, :]
-        # warp_Itgt_R12 = warp_Itgt[10:, :, :, :]
+        warp_Itgt_LR = warp_Itgt[:batch_size, :, :, :]
+        warp_Itgt_R12 = warp_Itgt[batch_size:, :, :, :]
 
-        # warp_error_LR  = torch.log(F.mse_loss(warp_Itgt_LR, img_R2) + 1)
-        # warp_error_R12 = torch.log(F.mse_loss(warp_Itgt_R12, img_R2) + 1)
-        reconstruction_error = photometric_reconstruction_loss(0.004*img_R2, 0.004*img_R1, 0.004*img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
+        out_of_bound = 1 - (warp_Itgt_LR == 0).prod(1, keepdim=True).type_as(warp_Itgt_LR)
+        diff_LR = (norm_img_R2 - warp_Itgt_LR) * out_of_bound
+        LR_error = diff_LR.abs().mean()
+
+        out_of_bound = 1 - (warp_Itgt_R12 == 0).prod(1, keepdim=True).type_as(warp_Itgt_R12)
+        diff_R12 = (norm_img_R2 - warp_Itgt_R12) * out_of_bound
+        R12_error = diff_R12.abs().mean()
+
+        # reconstruction_error = photometric_reconstruction_loss(0.004*img_R2, 0.004*img_R1, 0.004*img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
-        loss = reconstruction_error + smooth_error
+        loss = LR_error + R12_error + smooth_error
 
         total_loss += loss.item()
-        reconstruction_total += reconstruction_error.item()
+        lr_total += LR_error.item()
+        r12_total += R12_error.item()
         smooth_total += smooth_error.item()
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    print("Train epoch {}: loss: {:.6f} recon-loss: {:.6f} smooth-loss: {:.6f}".format(epoch, 
-        total_loss/len(train_loader), reconstruction_total/len(train_loader), smooth_total/len(train_loader)))
+    print("Train epoch {}: loss: {:.6f} LR-loss: {:.6f} R12-loss: {:.6f} smooth-loss: {:.6f}".format(epoch, 
+        total_loss/len(train_loader), lr_total/len(train_loader), r12_total/len(train_loader), smooth_total/len(train_loader)))
+
 
 
 @torch.no_grad()
