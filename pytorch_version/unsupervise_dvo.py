@@ -118,10 +118,8 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         diff_R12 = (norm_img_R2 - warp_Itgt_R12) * out_of_bound
         R12_error = diff_R12.abs().mean()
 
-        # reconstruction_error = photometric_reconstruction_loss(0.004*img_R2, 0.004*img_R1, 0.004*img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
         smooth_error = smooth_loss(depth)
-
-        loss = LR_error + R12_error + smooth_error
+        loss = LR_error + R12_error + 10 * smooth_error
 
         total_loss += loss.item()
         lr_total += LR_error.item()
@@ -206,12 +204,12 @@ def main():
     vo_conv_output_fix = [False, False, False, False, False, False]
     #vo_conv_output_fix = [True] * 6
     vo_fc_output_fix = [False, False, False]
+
     odometry_net = FixOdometryNet(bit_width=BITWIDTH, input_fix=vo_input_fix, output_fix=vo_output_fix,
         conv_weight_fix=vo_conv_weight_fix, fc_weight_fix=vo_fc_weight_fix,
         conv_output_fix=vo_conv_output_fix, fc_output_fix=vo_fc_output_fix
     ).to(device)
-#    odometry_net = OdometryNet().to(device)
-    #depth_net = DepthNet().to(device)
+
     depth_net = DispNetS().to(device)
 
     # init weights of model

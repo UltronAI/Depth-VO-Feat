@@ -17,21 +17,18 @@ def geo_transform(depthmap, pose, cam_intrinsic):
     x_matrix = torch.from_numpy(np.tile(np.tile(np.arange(width).reshape((1, width)), [height, 1]), [num, 1, 1])).type_as(depthmap)
     y_matrix = torch.from_numpy(np.tile(np.tile(np.arange(height).reshape((height, 1)), [1, width]), [num, 1, 1])).type_as(depthmap)
 
-    fx = torch.from_numpy(np.tile(np.tile(cam_intrinsic[:, 0, 0, 0].reshape((num, 1)), [1, height]).reshape(num, height, 1), [1, 1, width])).type_as(depthmap)
-    fy = torch.from_numpy(np.tile(np.tile(cam_intrinsic[:, 1, 0, 0].reshape((num, 1)), [1, height]).reshape(num, height, 1), [1, 1, width])).type_as(depthmap)
-    cx = torch.from_numpy(np.tile(np.tile(cam_intrinsic[:, 2, 0, 0].reshape((num, 1)), [1, height]).reshape(num, height, 1), [1, 1, width])).type_as(depthmap)
-    cy = torch.from_numpy(np.tile(np.tile(cam_intrinsic[:, 3, 0, 0].reshape((num, 1)), [1, height]).reshape(num, height, 1), [1, 1, width])).type_as(depthmap)
+    fx = torch.from_numpy(np.tile(np.tile(cam_intrinsic[:, 0, 0, 0].cpu().numpy().reshape((num, 1)), [1, height]).reshape(num, height, 1), [1, 1, width])).type_as(depthmap)
+    fy = torch.from_numpy(np.tile(np.tile(cam_intrinsic[:, 1, 0, 0].cpu().numpy().reshape((num, 1)), [1, height]).reshape(num, height, 1), [1, 1, width])).type_as(depthmap)
+    cx = torch.from_numpy(np.tile(np.tile(cam_intrinsic[:, 2, 0, 0].cpu().numpy().reshape((num, 1)), [1, height]).reshape(num, height, 1), [1, 1, width])).type_as(depthmap)
+    cy = torch.from_numpy(np.tile(np.tile(cam_intrinsic[:, 3, 0, 0].cpu().numpy().reshape((num, 1)), [1, height]).reshape(num, height, 1), [1, 1, width])).type_as(depthmap)
 
     # fx, fy, cx, cy
     x = (x_matrix - cx) / fx * depthmap[:, 0, :, :]
     y = (y_matrix - cy) / fy * depthmap[:, 0, :, :]
 
-    print((pose[:, 0, 0, 0].view(-1, 1, 1).type_as(depthmap) * x).size())
-    print((pose[:, 0, 0, 3] * torch.ones([num, height, width]).type_as(depthmap)).size())
+    transformed_points[:, 0, :, :] = pose[:, 0, 0, 0].view(-1, 1, 1).type_as(depthmap) * x + pose[:, 0, 0, 1].view(-1, 1, 1).type_as(depthmap) * y + \
+                                    pose[:, 0, 0, 2].view(-1, 1, 1).type_as(depthmap) * depthmap[:, 0, :, :]# + pose[:, 0, 0, 3].type_as(depthmap)
     exit(0)
-
-    transformed_points[:, 0, :, :] = pose[:, 0, 0, 0] * x + pose[:, 0, 0, 1] * y + \
-                                    pose[:, 0, 0, 2] * depthmap[:, 0, :, :] + pose[:, 0, 0, 3]
     transformed_points[:, 1, :, :] = pose[:, 0, 1, 0] * x + pose[:, 0, 1, 1] * y + \
                                     pose[:, 0, 1, 2] * depthmap[:, 0, :, :] + pose[:, 0, 1, 3]
     transformed_points[:, 2, :, :] = pose[:, 0, 2, 0] * x + pose[:, 0, 2, 1] * y + \
