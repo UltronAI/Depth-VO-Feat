@@ -78,7 +78,7 @@ class dataset(data.Dataset):
             torch.from_numpy(img_r2).type(torch.FloatTensor), \
             torch.from_numpy(intrinsics).type(torch.FloatTensor), \
             torch.from_numpy(np.linalg.inv(intrinsics)).type(torch.FloatTensor), \
-            torch.from_numpy(raw_K).type(torch.FloatTensor)
+            torch.from_numpy(raw_K).type(torch.FloatTensor), \
             torch.from_numpy(T_R2L).type(torch.FloatTensor)
 
     def __len__(self):

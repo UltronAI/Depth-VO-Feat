@@ -94,14 +94,14 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         inv_depth_img_R2 = depth_net(img_R2)
         T_2to1, _ = odometry_net(img_R)
-        T_2to1 = T_2to1.view(T_2to1.size(0), -1)
-        T_R2L = T_R2L.view(T_R2L.size(0), -1)
+        #T_2to1 = T_2to1.view(T_2to1.size(0), -1)
+        #T_R2L = T_R2L.view(T_R2L.size(0), -1)
 
-        T = torch.cat((T_R2L, T_2to1), div=0)
+        T = torch.cat((T_R2L, T_2to1), dim=0)
 
         SE3 = generate_se3(T)
         inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = (1 / (inv_depth + 1e-12)).squeeze(1)
+        depth = (1 / (inv_depth + 1e-12))
 
         pts3D = geo_transform(depth, SE3, K)
         proj_coords = pin_hole_project(pts3D, K)
@@ -121,7 +121,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         R12_error = diff_R12.abs().mean()
 
         # reconstruction_error = photometric_reconstruction_loss(0.004*img_R2, 0.004*img_R1, 0.004*img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
-        smooth_error = smooth_loss(depth.unsqueeze(1))
+        smooth_error = smooth_loss(depth)
 
         loss = LR_error + R12_error + smooth_error
 
@@ -244,7 +244,7 @@ def main():
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     optimizer = optim.Adam(optim_params, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
-    validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
+    #validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
     print("=> training & validating")
     #validate(odometry_net, depth_net, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
