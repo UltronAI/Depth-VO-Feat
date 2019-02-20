@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_, zeros_
 
 def conv_relu(in_channels, out_channels, kernel_size=3, padding=1, stride=2):
@@ -17,7 +18,7 @@ class FeatExtractor(nn.Module):
         self.conv_1_b5 = conv_relu(3, 32, kernel_size=3, padding=1, stride=1)
         self.conv_2_b5 = conv_relu(32, 32, kernel_size=3, padding=1, stride=1)
         self.conv_3_b5 = nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1)
-        
+
         self.conv_1_b4 = conv_relu(35, 32，kernel_size=3, padding=1, stride=2)
         self.conv_2_b4 = conv_relu(32, 32, kernel_size=3, padding=1, stride=1)
         self.conv_3_b4 = nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1)
@@ -39,7 +40,11 @@ class FeatExtractor(nn.Module):
         self.conv_3_bb3_up = nn.ConvTranspose2d(32, 32, kernel_size=4, padding=1, stride=2, groups=32)
         self.conv_3_bb4_up = nn.ConvTranspose2d(32, 32, kernel_size=4, padding=1, stride=2, groups=32)
 
-    def forward(self, imgs, imgs_b4, imgs_b3, imgs_b2):
+    def forward(self, imgs):
+        imgs_b4 = F.interpolate(imgs, scale_factor=0.5, mode="bilinear")
+        imgs_b3 = F.interpolate(imgs_b4, scale_factor=0.5, mode="bilinear")
+        imgs_b2 = F.interpolate(imgs_b3, scale_factor=0.5, mode="bilinear")
+
         conv_1_b5 = self.conv_1_b5(imgs)
         conv_2_b5 = self.conv_2_b5(conv_1_b5)
         conv_3_b5 = self.conv_3_b5(conv_2_b5)

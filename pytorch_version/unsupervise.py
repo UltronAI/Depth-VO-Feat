@@ -13,6 +13,7 @@ import torch.backends.cudnn as cudnn
 from fixmodel import FixOdometryNet
 from model import DepthNet
 from DispNetS import DispNetS
+from feat_extractor import FeatExtractor
 import cv2, os
 import numpy as np
 from path import Path
@@ -64,13 +65,14 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 
 best_val_loss = 99999
 
-def train(odometry_net, depth_net, train_loader, epoch, optimizer):
+def train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimizer):
     global device
     odometry_net.set_fix_method(nfp.FIX_AUTO)
     odometry_net.train()
     depth_net.train()
     total_loss = 0
-    reconstruction_total = 0
+    img_reconstruction_total = 0
+    f_reconstruction_total = 0
     smooth_total = 0
     for batch_idx, (img_R1, img_L2, img_R2, intrinsics, inv_intrinsics, raw_K, T_R2L) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch, leave=False, ncols=80):
         img_R1 = img_R1.type(torch.FloatTensor).to(device)
@@ -90,20 +92,28 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         depth = (1/(inv_depth_img_R2+1e-4)).squeeze(1)
 
-        reconstruction_error = photometric_reconstruction_loss(0.004*img_R2, 0.004*img_R1, 0.004*img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
+        img_reconstruction_error = photometric_reconstruction_loss(img_R2, img_R1, img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
-        loss = reconstruction_error + 10 * smooth_error
+        imgs = torch.cat((img_L2, img_R2, img_R1), dim=0)
+        feat = feat_extractor(imgs)
+        batch_size = img_R1.size(0)
+        f_L2, f_R2, f_R1 = feat[:batch_size, :, :, :], feat[batch_size:batch_size*2, :, :, :], feat[2*batch_size:, :, :, :]
+
+        feat_reconstruction_error = photometric_reconstruction_loss(f_R2, f_R1, f_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
+
+        loss = img_reconstruction_error + 0.1 * feat_reconstruction_error + 10 * smooth_error
 
         total_loss += loss.item()
-        reconstruction_total += reconstruction_error.item()
+        img_reconstruction_total += img_reconstruction_error.item()
+        f_reconstruction_total += feat_reconstruction_error.item()
         smooth_total += smooth_error.item()
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    print("Train epoch {}: loss: {:.6f} recon-loss: {:.6f} smooth-loss: {:.6f}".format(epoch, 
-        total_loss/len(train_loader), reconstruction_total/len(train_loader), smooth_total/len(train_loader)))
+    print("Train epoch {}: loss: {:.6f} img-recon-loss: {:.6f} f-recon-loss: {:.6f} smooth-loss: {:.6f}".format(epoch, 
+        total_loss/len(train_loader), img_reconstruction_total/len(train_loader), f_reconstruction_total/len(train_loader), smooth_total/len(train_loader)))
 
 
 @torch.no_grad()
@@ -180,9 +190,8 @@ def main():
         conv_weight_fix=vo_conv_weight_fix, fc_weight_fix=vo_fc_weight_fix,
         conv_output_fix=vo_conv_output_fix, fc_output_fix=vo_fc_output_fix
     ).to(device)
-#    odometry_net = OdometryNet().to(device)
-    #depth_net = DepthNet().to(device)
-    depth_net = DepthNet().to(device)
+    depth_net = DispNetS().to(device)
+    feat_extractor = FeatExtractor().to(device)
 
     # init weights of model
     if args.odometry is None:
@@ -216,7 +225,7 @@ def main():
     print("=> training & validating")
     #validate(odometry_net, depth_net, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
-        train(odometry_net, depth_net, train_loader, epoch, optimizer)
+        train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimizer)
         validate(odometry_net, depth_net, val_loader, epoch, output_dir)
 
     #odometry_net.print_fix_configs()
