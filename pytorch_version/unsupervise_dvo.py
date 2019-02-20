@@ -94,8 +94,6 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         inv_depth_img_R2 = depth_net(img_R2)
         T_2to1, _ = odometry_net(img_R)
-        #T_2to1 = T_2to1.view(T_2to1.size(0), -1)
-        #T_R2L = T_R2L.view(T_R2L.size(0), -1)
 
         T = torch.cat((T_R2L, T_2to1), dim=0)
 
