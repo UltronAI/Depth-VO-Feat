@@ -90,7 +90,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         norm_img_L2 = 0.004 * img_L2
         norm_img_R1 = 0.004 * img_R1
-        norm_img_R2 = 0.003 * img_R2
+        norm_img_R2 = 0.004 * img_R2
 
         inv_depth_img_R2 = depth_net(img_R2)
         T_2to1, _ = odometry_net(img_R)
@@ -101,7 +101,7 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
 
         SE3 = generate_se3(T)
         inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = (1 / (inv_depth + 1e-12)).squeeze(1)
+        depth = (1 / (inv_depth + 1e-4)).squeeze(1)
 
         pts3D = geo_transform(depth, SE3, K)
         proj_coords = pin_hole_project(pts3D, K)
@@ -242,7 +242,7 @@ def main():
 
     # model = model.to(device)
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
-    optimizer = optim.Adam(optim_params, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
+    optimizer = optim.Adam(optim_params, betas=(0.9, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
     validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
     print("=> training & validating")
