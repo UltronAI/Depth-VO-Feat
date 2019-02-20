@@ -82,41 +82,18 @@ def train(odometry_net, depth_net, train_loader, epoch, optimizer):
         T_R2L = T_R2L.type(torch.FloatTensor).to(device)
 
         img_R = torch.cat((img_R2, img_R1), dim=1)
-        # K = torch.cat((raw_K, raw_K), dim=0)
-
-        # norm_img_L2 = 0.004 * img_L2
-        # norm_img_R1 = 0.004 * img_R1
-        # norm_img_R2 = 0.003 * img_R2
 
         inv_depth_img_R2 = depth_net(img_R2)
         T_2to1, _ = odometry_net(img_R)
         T_2to1 = T_2to1.view(T_2to1.size(0), -1)
         T_R2L = T_R2L.view(T_R2L.size(0), -1)
 
-        # T = torch.cat((T_R2L, T_2to1), div=0)
+        depth = (1/(inv_depth_img_R2+1e-4)).squeeze(1)
 
-        # SE3 = generate_se3(T)
-        # inv_depth = torch.cat((inv_depth_img_R2, inv_depth_img_R2), dim=0)
-        depth = (1/(inv_depth_img_R2+1e-12)).squeeze(1)
-        # warp_Itgt_LR = inverse_warp(img_L2, depth, T_R2L, intrinsics, inv_intrinsics)
-        # warp_Itgt_R12 = inverse_warp(img_R1, depth, T_2to1, intrinsics, inv_intrinsics)
-
-        # pts3D = geo_transform(depth, SE3, K)
-        # proj_coords = pin_hole_project(pts3D, K)
-
-        # Isrc = torch.cat((norm_img_L2, norm_img_R1), dim=0)
-        # warp_Itgt = inverse_warp(Isrc, proj_coords)
-        # warp_Itgt = inverse_warp(Isrc, depth, SE3, K)
-
-        # warp_Itgt_LR = warp_Itgt[:10, :, :, :]
-        # warp_Itgt_R12 = warp_Itgt[10:, :, :, :]
-
-        # warp_error_LR  = torch.log(F.mse_loss(warp_Itgt_LR, img_R2) + 1)
-        # warp_error_R12 = torch.log(F.mse_loss(warp_Itgt_R12, img_R2) + 1)
         reconstruction_error = photometric_reconstruction_loss(0.004*img_R2, 0.004*img_R1, 0.004*img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
-        loss = reconstruction_error + smooth_error
+        loss = reconstruction_error + 10 * smooth_error
 
         total_loss += loss.item()
         reconstruction_total += reconstruction_error.item()
@@ -193,11 +170,11 @@ def main():
 
     # create model
     vo_input_fix, vo_output_fix = False, False
-    vo_conv_weight_fix = [False, False, False, False, False, False]
-    #vo_conv_weight_fix = [True] * 6
+    #vo_conv_weight_fix = [False, False, False, False, False, False]
+    vo_conv_weight_fix = [False] * 6
     vo_fc_weight_fix = [False, False, False]
-    vo_conv_output_fix = [False, False, False, False, False, False]
-    #vo_conv_output_fix = [True] * 6
+    #vo_conv_output_fix = [False, False, False, False, False, False]
+    vo_conv_output_fix = [False] * 6
     vo_fc_output_fix = [False, False, False]
     odometry_net = FixOdometryNet(bit_width=BITWIDTH, input_fix=vo_input_fix, output_fix=vo_output_fix,
         conv_weight_fix=vo_conv_weight_fix, fc_weight_fix=vo_fc_weight_fix,
@@ -205,7 +182,7 @@ def main():
     ).to(device)
 #    odometry_net = OdometryNet().to(device)
     #depth_net = DepthNet().to(device)
-    depth_net = DispNetS().to(device)
+    depth_net = DepthNet().to(device)
 
     # init weights of model
     if args.odometry is None:
@@ -233,9 +210,9 @@ def main():
 
     # model = model.to(device)
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
-    optimizer = optim.Adam(optim_params, betas=(args.momentum, 0.999), eps=1e-08, weight_decay=args.weight_decay)
+    optimizer = optim.Adam(optim_params, betas=(0.9, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
-    validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
+    #validate(odometry_net, depth_net, val_loader, 0, output_dir, True)
     print("=> training & validating")
     #validate(odometry_net, depth_net, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
