@@ -129,4 +129,4 @@ class DispNetS(nn.Module):
         out_iconv1 = self.iconv1(concat1)
         disp1 = self.alpha * self.predict_disp1(out_iconv1) + self.beta
 
-        return disp1
+        return disp1, disp2, disp3, disp4
