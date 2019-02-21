@@ -19,19 +19,19 @@ class FeatExtractor(nn.Module):
         self.conv_2_b5 = conv_relu(32, 32, kernel_size=3, padding=1, stride=1)
         self.conv_3_b5 = nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1)
 
-        self.conv_1_b4 = conv_relu(35, 32，kernel_size=3, padding=1, stride=2)
+        self.conv_1_b4 = conv_relu(35, 32, kernel_size=3, padding=1, stride=2)
         self.conv_2_b4 = conv_relu(32, 32, kernel_size=3, padding=1, stride=1)
         self.conv_3_b4 = nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1)
 
-        self.conv_1_b3 = conv_relu(35, 32，kernel_size=3, padding=1, stride=2)
+        self.conv_1_b3 = conv_relu(35, 32, kernel_size=3, padding=1, stride=2)
         self.conv_2_b3 = conv_relu(32, 32, kernel_size=3, padding=1, stride=1)
         self.conv_3_b3 = nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1)
 
-        self.conv_1_b2 = conv_relu(35, 32，kernel_size=3, padding=1, stride=2)
+        self.conv_1_b2 = conv_relu(35, 32, kernel_size=3, padding=1, stride=2)
         self.conv_2_b2 = conv_relu(32, 32, kernel_size=3, padding=1, stride=1)
         self.conv_3_b2 = nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1)
 
-        self.conv_1_b1 = conv_relu(35, 32，kernel_size=3, padding=1, stride=2)
+        self.conv_1_b1 = conv_relu(35, 32, kernel_size=3, padding=1, stride=2)
         self.conv_2_b1 = conv_relu(32, 32, kernel_size=3, padding=1, stride=1)
         self.conv_3_b1 = nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1)
 

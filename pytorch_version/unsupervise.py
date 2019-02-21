@@ -62,14 +62,20 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")        
+data_parallel = False
 
 best_val_loss = 99999
 
 def train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimizer):
     global device
-    odometry_net.set_fix_method(nfp.FIX_AUTO)
+    global data_parallel
+    if data_parallel:
+        odometry_net.module.set_fix_method(nfp.FIX_AUTO)
+    else:
+        odometry_net.set_fix_method(nfp.FIX_AUTO)
     odometry_net.train()
     depth_net.train()
+    feat_extractor.train()
     total_loss = 0
     img_reconstruction_total = 0
     f_reconstruction_total = 0
@@ -92,7 +98,7 @@ def train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimize
 
         depth = (1/(inv_depth_img_R2+1e-4)).squeeze(1)
 
-        img_reconstruction_error = photometric_reconstruction_loss(img_R2, img_R1, img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
+        img_reconstruction_error = photometric_reconstruction_loss(0.004*img_R2, 0.004*img_R1, 0.004*img_L2, depth, T_2to1, T_R2L, intrinsics, inv_intrinsics)
         smooth_error = smooth_loss(depth.unsqueeze(1))
 
         imgs = torch.cat((img_L2, img_R2, img_R1), dim=0)
@@ -112,18 +118,25 @@ def train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimize
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    print("Train epoch {}: loss: {:.6f} img-recon-loss: {:.6f} f-recon-loss: {:.6f} smooth-loss: {:.6f}".format(epoch, 
+    print("Train epoch {}: loss: {:.9f} img-recon-loss: {:.9f} f-recon-loss: {:.9f} smooth-loss: {:.9f}".format(epoch, 
         total_loss/len(train_loader), img_reconstruction_total/len(train_loader), f_reconstruction_total/len(train_loader), smooth_total/len(train_loader)))
 
 
 @torch.no_grad()
-def validate(model, depth_net, val_loader, epoch, output_dir, use_float=False):
+def validate(model, depth_net, feat_extractor, val_loader, epoch, output_dir, use_float=False):
     global device
     global best_val_loss
+    global data_parallel
     if use_float:
-        model.set_fix_method(nfp.FIX_NONE)
+        if data_parallel:
+            model.module.set_fix_method(nfp.FIX_NONE)
+        else:
+            model.set_fix_method(nfp.FIX_NONE)
     else:
-        model.set_fix_method(nfp.FIX_FIXED)
+        if data_parallel:
+            model.module.set_fix_method(nfp.FIX_NONE)
+        else:
+            model.set_fix_method(nfp.FIX_FIXED)
     model.eval()
     val_loss = 0
     for data, target in val_loader:
@@ -140,16 +153,18 @@ def validate(model, depth_net, val_loader, epoch, output_dir, use_float=False):
     print('Test set: Average loss: {:.4f} [BEST:{}]'.format(val_loss, is_best if not use_float else 'N/A'))
     if use_float:
         return
-    if is_best and args.gpu_id in range(2):
+    if is_best and args.gpu_id in range(4):
         torch.save(model.state_dict(), output_dir/"best_vo_checkpoint.pth.tar")
         torch.save(depth_net.state_dict(), output_dir/"best_depth_checkpoint.pth.tar")
+        torch.save(feat_extractor.state_dict(), output_dir/"best_feat_checkpoint.pth.tar")
     elif is_best:
         torch.save(model.module.state_dict(), output_dir/"best_vo_checkpoint.pth.tar")
         torch.save(depth_net.module.state_dict(), output_dir/"best_depth_checkpoint.pth.tar")
-
+        torch.save(feat_extractor.module.state_dict(), output_dir/"best_feat_checkpoint.pth.tar")
 
 def main():
     global device
+    global data_parallel
     print("=> will save everthing to {}".format(args.output_dir))
     output_dir = Path(args.output_dir)
     output_dir.makedirs_p()
@@ -205,19 +220,23 @@ def main():
         weights = torch.load(args.depth)
         depth_net.load_state_dict(weights['state_dict'])
 
+    feat_extractor.init_weights()
+
     cudnn.benchmark = True
     if args.cuda and args.gpu_id in range(2):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     elif args.cuda:
+        data_parallel = True
         odometry_net = torch.nn.DataParallel(odometry_net)
         depth_net = torch.nn.DataParallel(depth_net)
+        feat_extractor = torch.nn.DataParallel(feat_extractor)
 
     optim_params = [
         {'params': odometry_net.parameters(), 'lr': args.lr},
-        {'params': depth_net.parameters(), 'lr': args.lr}
+        {'params': depth_net.parameters(), 'lr': args.lr},
+        {'params': feat_extractor.parameters(), 'lr': args.lr}
     ]
 
-    # model = model.to(device)
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
     optimizer = optim.Adam(optim_params, betas=(0.9, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     print("=> validating before training")
@@ -226,7 +245,7 @@ def main():
     #validate(odometry_net, depth_net, val_loader, 0, output_dir)
     for epoch in range(1, args.epochs+1):
         train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimizer)
-        validate(odometry_net, depth_net, val_loader, epoch, output_dir)
+        validate(odometry_net, depth_net, feat_extractor, val_loader, epoch, output_dir)
 
     #odometry_net.print_fix_configs()
 
