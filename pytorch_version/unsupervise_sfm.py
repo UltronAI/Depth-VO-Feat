@@ -89,7 +89,7 @@ def train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimize
         img_R = torch.cat((img_R2, img_R1), dim=1)
 
         inv_depth_img_R2 = depth_net(img_R2)
-        depth = [1/(inv_depth_img_R2+1e-4) for disp in inv_depth_img_R2]
+        depth = [1 / (disp + 1e-4) for disp in inv_depth_img_R2]
 
         mask, T_2to1 = odometry_net(img_R)
         T_2to1 = T_2to1.view(T_2to1.size(0), -1)
@@ -99,7 +99,7 @@ def train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimize
         smooth_error = smooth_loss(depth, scale_factor=2.3)
         exp_loss = explainability_loss(mask)
 
-        loss = img_reconstruction_error +  0.1 * smooth_error + 0.2 * exp_loss
+        loss = img_reconstruction_error +  0.01 * smooth_error + 0.05 * exp_loss
 
         total_loss += loss.item()
         img_reconstruction_total += img_reconstruction_error.item()
@@ -122,8 +122,8 @@ def validate(model, depth_net, feat_extractor, val_loader, epoch, output_dir, us
     val_loss = 0
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
-        output, _ = model(data)
-        output = generate_se3(output)
+        mask, output = model(data)
+        output = generate_se3(output.view(-1, 6, 1, 1))
         output = output.view(-1, 4, 4).type(torch.FloatTensor).to(device)
         val_loss += F.l1_loss(output, target).item()# sum up batch loss
 

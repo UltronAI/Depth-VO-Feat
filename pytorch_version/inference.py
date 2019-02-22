@@ -26,7 +26,7 @@ parser.add_argument('--checkpoint', default=None, type=str)
 parser.add_argument('--seed', type=int, default=2018, metavar='S',
                     help='random seed (default: 2018)')
 parser.add_argument('-g', '--gpu-id', type=int, metavar='N', default=-1)
-parser.add_argument("--dataset-dir", default='.', type=str, help="Dataset directory")
+parser.add_argument("--dataset-dir", default='/home/share/kitti_odometry/dataset/', type=str, help="Dataset directory")
 parser.add_argument("--test-sequences", default=['00'], type=str, nargs='*', help="sequences to test")
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers')
@@ -91,15 +91,16 @@ def inference(model, val_loader, output_dir):
     global device
     model.set_fix_method(nfp.FIX_FIXED)
     model.eval()
-    for _, (data, target) in enumerate(val_loader):
+    npysave = np.zeros((len(val_loader), 12))
+    for idx, (data, target) in enumerate(val_loader):
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         output, _ = model(data)
         output = generate_se3(output)
-        output = output.view(-1, 4, 4).cpu().numpy()[0]
-
-        save_result_poses(output, output_dir, 'pytorch_fix_pred_3.txt')
+        output = output.view(-1, 4, 4).cpu().numpy()[0].astype(np.float64)
+        npysave[idx] = output[:3, :].reshape(12)
+        save_result_poses(output, output_dir, 'pytorch_fix_pred.txt')
         #save_result_poses(target.cpu().numpy()[0], output_dir, 'gt.txt')
-
+    np.save(os.path.join(output_dir,'pytorch_fix_pred.npy'), npysave)
 
 def main():
     global device

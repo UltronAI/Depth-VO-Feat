@@ -25,6 +25,8 @@ class dataset(data.Dataset):
         for i in range(len(lines)):
             line_split = lines[i].split()
             l1, l2, r1, r2, k, t = line_split[0], line_split[1], line_split[2], line_split[3], line_split[4], line_split[5]
+            if l1.split('/')[-4] == "2011_09_26_drive_0060_sync":
+                continue
             intrinsics = root + 'intrinsics/' + l1.split('/')[-4] + '_cam.txt'
             raw_K = root + 'train_K/' + k + '.npy'
             T = root + 'train_T_R2L/' + t + '.npy'

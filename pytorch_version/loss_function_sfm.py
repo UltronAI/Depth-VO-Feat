@@ -22,16 +22,16 @@ def photometric_reconstruction_loss(img_R2, img_R1, img_L2, depth, T_2to1, T_R2L
         out_of_bound = 1 - (warped_R1 == 0).prod(1, keepdim=True).type_as(warped_R1)
         diff_R1 = (img_R2_scaled - warped_R1) * out_of_bound
         if mask is not None:
-            diff_R1 = diff_R1 * mask[:, 0].expand_as(diff_R1)
+            diff_R1 = diff_R1 * mask[:, 0].view(b, -1, h, w).expand_as(diff_R1)
         reconstruction_loss += diff_R1.abs().mean()
 
         # R to L
-        warped_L2 = inverse_warp(img_L2_scaled, depth[:, 0], T_R2L, intrinsics_scaled, intrinsics_scaled_inv, rotation_mode, padding_mode)
-        out_of_bound = 1 - (warped_L2 == 0).prod(1, keepdim=True).type_as(warped_L2)
-        diff_L2 = (img_R2_scaled - warped_L2) * out_of_bound
-        if mask is not None:
-            diff_L2 = diff_L2 * mask[:, 1].expand_as(diff_L2)
-        reconstruction_loss += diff_L2.abs().mean()
+#        warped_L2 = inverse_warp(img_L2_scaled, depth[:, 0], T_R2L, intrinsics_scaled, intrinsics_scaled_inv, rotation_mode, padding_mode)
+#        out_of_bound = 1 - (warped_L2 == 0).prod(1, keepdim=True).type_as(warped_L2)
+#        diff_L2 = (img_R2_scaled - warped_L2) * out_of_bound
+#        if mask is not None:
+#            diff_L2 = diff_L2 * mask[:, 1].view(b, -1, h, w).expand_as(diff_L2)
+#        reconstruction_loss += diff_L2.abs().mean()
 
         return reconstruction_loss
 
