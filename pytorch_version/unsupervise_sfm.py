@@ -99,7 +99,7 @@ def train(odometry_net, depth_net, feat_extractor, train_loader, epoch, optimize
         smooth_error = smooth_loss(depth, scale_factor=2.3)
         exp_loss = explainability_loss(mask)
 
-        loss = img_reconstruction_error +  0.1 * smooth_error + 0.2 * exp_loss
+        loss = img_reconstruction_error +  0.01 * smooth_error + 0.05 * exp_loss
 
         total_loss += loss.item()
         img_reconstruction_total += img_reconstruction_error.item()
@@ -123,7 +123,7 @@ def validate(model, depth_net, feat_extractor, val_loader, epoch, output_dir, us
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
         mask, output = model(data)
-        output = generate_se3(output)
+        output = generate_se3(output.view(-1, 6, 1, 1))
         output = output.view(-1, 4, 4).type(torch.FloatTensor).to(device)
         val_loss += F.l1_loss(output, target).item()# sum up batch loss
 
