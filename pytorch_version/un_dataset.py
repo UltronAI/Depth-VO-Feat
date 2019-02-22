@@ -51,30 +51,30 @@ class dataset(data.Dataset):
         if self.transform is not None:
             #intrinsics = self.transform(intrinsics).numpy()
             img_r1 = self.transform(img_r1).numpy()
-            img_r1 -= 101
-            img_r1 -= 117
-            img_r1 -= 123
+            # img_r1 -= 101
+            # img_r1 -= 117
+            # img_r1 -= 123
             img_l2 = self.transform(img_l2).numpy()
-            img_l2 -= 101
-            img_l2 -= 117
-            img_l2 -= 123
+            # img_l2 -= 101
+            # img_l2 -= 117
+            # img_l2 -= 123
             img_r2 = self.transform(img_r2).numpy()
-            img_r2 -= 101
-            img_r2 -= 117
-            img_r2 -= 123
+            # img_r2 -= 101
+            # img_r2 -= 117
+            # img_r2 -= 123
         else:
             img_r1 = np.transpose(img_r1, (2,0,1))
-            img_r1 -= 101
-            img_r1 -= 117
-            img_r1 -= 123
+            # img_r1 -= 101
+            # img_r1 -= 117
+            # img_r1 -= 123
             img_l2 = np.transpose(img_l2, (2,0,1))
-            img_l2 -= 101
-            img_l2 -= 117
-            img_l2 -= 123
+            # img_l2 -= 101
+            # img_l2 -= 117
+            # img_l2 -= 123
             img_r2 = np.transpose(img_r2, (2,0,1))
-            img_r2 -= 101
-            img_r2 -= 117
-            img_r2 -= 123
+            # img_r2 -= 101
+            # img_r2 -= 117
+            # img_r2 -= 123
         return torch.from_numpy(img_r1).type(torch.FloatTensor), \
             torch.from_numpy(img_l2).type(torch.FloatTensor), \
             torch.from_numpy(img_r2).type(torch.FloatTensor), \
