@@ -4,7 +4,7 @@ import csv
 import os
 
 import numpy as np
-import tqdm
+from tqdm import tqdm
 import torch
 from path import Path
 from torch.autograd import Variable
@@ -13,7 +13,7 @@ import torch.optim
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
-import custom_transforms
+import pose_transforms
 from PoseExpNet_sfm import PoseExpNet
 from DispNetS import DispNetS
 from utils import tensor2array, save_checkpoint, save_path_formatter
@@ -84,16 +84,16 @@ def main():
     output_dir.makedirs_p()
 
     # Data loading code
-    normalize = custom_transforms.Normalize(mean=[0.5, 0.5, 0.5],
+    normalize = pose_transforms.Normalize(mean=[0.5, 0.5, 0.5],
                                             std=[0.5, 0.5, 0.5])
-    train_transform = custom_transforms.Compose([
-        custom_transforms.RandomHorizontalFlip(),
-        custom_transforms.RandomScaleCrop(),
-        custom_transforms.ArrayToTensor(),
-        normalize
-    ])
+    #train_transform = pose_transforms.Compose([
+    #    custom_transforms.RandomHorizontalFlip(),
+    #    custom_transforms.RandomScaleCrop(),
+    #    custom_transforms.ArrayToTensor(),
+    #    normalize
+    #])
 
-    valid_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor()])#, normalize])
+    valid_transform = pose_transforms.Compose([pose_transforms.ArrayToTensor()])#, normalize])
 
     print("=> fetching sequences in '{}'".format(args.dataset_dir))
     dataset_dir = Path(args.dataset_dir)
@@ -155,12 +155,13 @@ def main():
                                  betas=(args.momentum, args.beta),
                                  weight_decay=args.weight_decay)
 
+    validate(args, pose_exp_net, disp_net, val_loader, 0, output_dir)
     for epoch in range(args.epochs):
         # train for one epoch
-        train(args, train_loader, disp_net, pose_exp_net, optimizer, args.epoch_size)
+        train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch)
         validate(args, pose_exp_net, disp_net, val_loader, epoch, output_dir)
 
-def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size):
+def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch):
     global n_iter, device
     w1, w2, w3 = args.photo_loss_weight, args.mask_loss_weight, args.smooth_loss_weight
     scale_factor = args.smooth_loss_factor
@@ -169,11 +170,18 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size):
     disp_net.train()
     pose_exp_net.train()
 
+    loss_total = 0
+    photo_loss_total = 0
+    smooth_loss_total = 0
+    exp_loss_total = 0
+    lr_loss_total = 0
+
     for batch_idx, (img_R1, img_L2, img_R2, intrinsics, intrinsics_inv, raw_K, T_R2L) in tqdm(enumerate(train_loader), desc='Train epoch %d' % epoch, leave=False, ncols=80):
         tgt_img = img_R2.to(device)
         ref_imgs = [img.to(device) for img in [img_R1, img_L2]]
         intrinsics = intrinsics.to(device)
         intrinsics_inv = intrinsics_inv.to(device)
+        T_R2L = T_R2L.to(device).view(-1, 6)
 
         # compute output
         disparities = disp_net(tgt_img)
@@ -194,12 +202,18 @@ def train(args, train_loader, disp_net, pose_exp_net, optimizer, epoch_size):
 
         loss = w1*loss_1 + w2*loss_2 + w3*loss_3 + loss_4
 
+        loss_total += loss.item()
+        photo_loss_total += loss_1.item()
+        exp_loss_total += loss_2.item()
+        smooth_loss_total += loss_3.item()
+        lr_loss_total += loss_4.item()
+
         # compute gradient and do Adam step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-
+    print("Train epoch {}: loss: {:.9f} photo-loss: {:.9f} exp-loss: {:.9f} smooth: {:.9f} lr: {:.9f}".format(epoch,loss_total/len(train_loader),photo_loss_total/len(train_loader),exp_loss_total/len(train_loader),smooth_loss_total/len(train_loader),lr_loss_total/len(train_loader)))
 
 best_val_loss = 99999
 
@@ -207,13 +221,14 @@ best_val_loss = 99999
 def validate(args, model, depth_net, val_loader, epoch, output_dir, use_float=False):
     global device
     global best_val_loss
-    global data_parallel
     model.eval()
     val_loss = 0
     for data, target in val_loader:
         data, target = data.type(torch.FloatTensor).to(device), target.type(torch.FloatTensor).to(device)
-        mask, output = model(data)
-        output = generate_se3(output.view(-1, 6, 1, 1))
+        tgt_img = data[:, :3].to(device)
+        ref_imgs = [data[:, 3:].to(device), data[:, 3:].to(device)]
+        mask, output = model(tgt_img, ref_imgs)
+        output = generate_se3(output[:, 0].view(-1, 6, 1, 1))
         output = output.view(-1, 4, 4).type(torch.FloatTensor).to(device)
         val_loss += F.l1_loss(output, target).item()# sum up batch loss
 
